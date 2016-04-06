@@ -618,7 +618,13 @@ class Tensor{
 		
 		
 		
+
+
 };
+
+
+/* test */
+
 
 Tensor::Tensor(){
 	_tensor_size = 10;
