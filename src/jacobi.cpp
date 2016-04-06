@@ -623,7 +623,7 @@ class Tensor{
 };
 
 
-/* test */
+/* test */	
 
 
 Tensor::Tensor(){
@@ -1578,8 +1578,8 @@ void test_mode_one_folding1_multicore1(){
 }
 
 void test_kron_multicore(){
-	Matrix A(500,500);
-	Matrix B(500,500);
+	Matrix A(50,50);
+	Matrix B(50,50);
 	cout<<"multicore kronecker product started"<<endl;
 	double start_time = omp_get_wtime();
 	Matrix C = A.kron_multicore(B);
