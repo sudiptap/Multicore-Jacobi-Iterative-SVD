@@ -1461,7 +1461,7 @@ void tensor_svd_multicore(){
 			theta = rt;
 			//#pragma omp critical
 			//{
-			theta = 6 * theta;
+			//theta = 6 * theta;
 			//cout<<theta<<endl;exit(1);				
 		
 			G[mi].set_M(m,m,cos(theta * (M_PI/180)));
