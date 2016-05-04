@@ -860,18 +860,72 @@ vector<double> get_all_real_roots(double* poly, int poly_size){
 	return real_roots;
 }
 
+void atomic_update(Matrix& B, int i, int j){
+	//cout<<"start here"<<endl;
+	//Matrix P(B);
+	//compute c and s
+        double ii = B.M[i][i];
+	double ij = B.M[i][j];
+	double ji = B.M[j][i];
+	double jj = B.M[j][j];
+	//cout<<"after i, ij, ji, jj here"<<endl;
+	double tau = (jj-ii)/(2*ij);	
+	int sign = 0;
+	if(tau>=0){
+		sign = 1;
+	}else{
+		sign = -1;
+	}
+	double t = sign * (1 - lamda)/(abs(tau) + sqrt(pow(tau,2) + (1 - pow(lamda,2))));
+	double c = 1 / (sqrt(1 + pow(t,2)));
+	double s = c * t;
+
+	//i-th and j-th row
+	//cout<<"i-th and j-th row update"<<endl;	
+	for(int k=0; k< B.get_col(); k++){
+		if(k!=i || k!=j){
+			B.M[i][k] = B.M[i][k] + ((c-1)*B.M[i][k]-s*B.M[j][k]); 
+			B.M[j][k] = B.M[i][k] + ((c-1)*B.M[j][k]+s*B.M[i][k]); 
+		}
+	}
+
+	//i-th and j-th column
+	//cout<<"i-th and j-th col update"<<endl;
+	for(int k=0; k< B.get_row(); k++){
+		if(k!=i || k!=j){
+			B.M[k][i] = B.M[k][i] + ((c-1)*B.M[k][i]-s*B.M[k][j]); 
+			B.M[k][j] = B.M[k][j] + (s*B.M[k][i]-(c+1)*B.M[k][j]); 
+		}
+	}
+
+	//intersection elements (ii-th, ij-th, ji-th and jj-th elements) update
+	//cout<<"intersection  update"<<endl;
+	B.M[i][i] = B.M[i][i] + ((c*c-1)*B.M[i][i] - s*c*B.M[j][i] - c*s*B.M[i][j] + s*s*B.M[j][j]);
+	B.M[i][j] = B.M[i][j] + (s*c*B.M[i][i] - c*s*B.M[j][j] - s*s*B.M[j][i] + (c*c-1)*B.M[i][j]);
+	B.M[j][i] = B.M[j][i] + (c*s*B.M[i][i] + (c*c-1)*B.M[j][i] - s*s*B.M[i][j] - s*c*B.M[j][j]);
+	B.M[j][j] = B.M[j][j] + (s*s*B.M[i][i] + s*c*B.M[j][i] + c*s*B.M[i][j] + (c*c-1)*B.M[j][j]);
+	
+	//B = J.transpose() * B * J;
+	//return P;
+	
+}
+
 void sequentialAlgo1(){
-	int num_items = 40; int row = num_items; int col = num_items;
+	cout<<"************************************************************"<<endl;
+	cout<<"sequential implementation"<<endl<<endl<<endl;
+	int num_items = 20; int row = num_items; int col = num_items;
 	Matrix A(num_items,num_items);	
 	A.init_symmetric_matrix(); //A.print_M();
 	Matrix B1(num_items,num_items,A);
+	Matrix B(B1);
 	//B.print_M();
-	for(int mi = 0; mi < 1000; mi++){
+	for(int mi = 0; mi < 500; mi++){
 		double avg_sum = B1.offDiagonalSquaredSum()/(B1.get_row() * B1.get_col());
+		cout<<avg_sum<<" ";
 		if(avg_sum<1.0e-15){
-			break;
+			//break;
 		}		
-		cout<<"iteration  = "<<mi<< "Avg Sum = " << avg_sum <<endl;
+		//cout<<"iteration  = "<<mi<< "Avg Sum = " << avg_sum <<endl;
 		clock_t begin = clock();
 		
 
@@ -883,17 +937,21 @@ void sequentialAlgo1(){
 				J.get_identity();
 				set_cs(J,i,j,B1.get_M(i,i),B1.get_M(i,j),B1.get_M(j,i),B1.get_M(j,j));
 				B1 = J.transpose() * B1 * J;
+				(B-B1).print_M();exit(1);
 			}
 		}
 		clock_t end = clock();
   		double elapsed_secs = double(end - begin) / CLOCKS_PER_SEC;
-		std::cout << "Elapsed time -> " << elapsed_secs << std::endl;
+		
+		//std::cout << "Elapsed time -> " << elapsed_secs << std::endl;
 	}
+	
 }
 
 void parallelAlgo1(){
-
-	int num_items = 40; int row = num_items; int col = num_items;
+	//cout<<<<endl;
+	int num_items = 20; int row = num_items; int col = num_items;
+	double* off_diag_avg_sum = new double[num_items];
 	Matrix A(num_items,num_items);	
 	A.init_symmetric_matrix(); //A.print_M();
 	Matrix B1(num_items,num_items,A);
@@ -901,7 +959,7 @@ void parallelAlgo1(){
 	
 	cout<<"************************************************************"<<endl;
 	cout<<"parallel implementation"<<endl;
-	num_items = 40; row = num_items; col = num_items;	
+	num_items = 20; row = num_items; col = num_items;	
 	Matrix B(num_items,num_items,A);
 	vector<pair<int,int>> pairs;	
 	for(int i=0; i< num_items-1; i++){
@@ -913,44 +971,38 @@ void parallelAlgo1(){
 
 	Matrix jt_array[pairs_size]; 
 	Matrix j_array[pairs_size];
-	for(int mi = 0; mi < 1000; mi++){
+	for(int mi = 0; mi < 500; mi++){
 		double avg_sum = B.offDiagonalSquaredSum()/(B.get_row() * B.get_col());
+		cout<<avg_sum<<" ";
+		off_diag_avg_sum[mi] = avg_sum;
 		if(avg_sum<1.0e-15){
-			break;
+                        //cout<<"iteration  = "<<mi<< " Avg Sum = " << avg_sum <<endl;
+			//break;
 		}		
-		cout<<"iteration  = "<<mi<< "Avg Sum = " << avg_sum <<endl;
+		//cout<<"iteration  = "<<mi<< " Avg Sum = " << avg_sum <<endl;
 		clock_t begin = clock();
 		
 		
-		#pragma omp parallel //schedule(dynamic,10) nowait
-		#pragma omp for nowait
+		//#pragma omp parallel //schedule(dynamic,10) nowait
+		//#pragma omp for nowait
+		#pragma omp parallel for num_threads(4)
 		for(int pidx=0; pidx< pairs.size(); pidx++){
 			int i = pairs[pidx].first;
-			int j = pairs[pidx].second;
-			//for(i=0; i< num_row-1; i++){				
-				//for(int j=i+1; j< A.get_row(); j++){
-					Matrix J(row,col);
-					J.get_identity();
-					set_cs(J,i,j,B.get_M(i,i),B.get_M(i,j),B.get_M(j,i),B.get_M(j,j));
-					//#pragma omp critical 
-					{
-						//B = J.transpose() * B * J;
-
-						jt_array[pidx] = J.transpose();
-						j_array[pidx] = J;
-					}
-				//}
-			//}
+			int j = pairs[pidx].second;			
+			//Matrix J(row,col);
+			//J.get_identity();
+			//set_cs(J,i,j,B.get_M(i,i),B.get_M(i,j),B.get_M(j,i),B.get_M(j,j));
+			//B = J.transpose() * B * J;
+			//cout<<"called"<<endl;
+		        atomic_update(B,i,j);
+			//cout<<"returned"<<endl;						
 			clock_t end = clock();
 	  		double elapsed_secs = double(end - begin) / CLOCKS_PER_SEC;
-			std::cout << "Elapsed time -> " << elapsed_secs << std::endl;
-			for(int i=0; i< pairs_size; i++){
-				B = jt_array[i] * B * j_array[i];
-			}
+			//std::cout << "Elapsed time -> " << elapsed_secs << std::endl;		
 		}	
 		
 	}
-	//B1.print_M();
+	//B.print_M();
 }
 
 void mode_one_folding1(gsl_matrix* M, Tensor& T){
@@ -1043,8 +1095,10 @@ void print_gsl_matrix(gsl_matrix* M){
 
 
 int main(){	
-	tensor_svd_sequential();	
-	tensor_svd_multicore();
+	//tensor_svd_sequential();	
+	//tensor_svd_multicore();
+        parallelAlgo1();
+	//sequentialAlgo1();
 	return 0;
 }
 
