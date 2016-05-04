@@ -322,8 +322,8 @@ void Matrix::init_symmetric_matrix(){
 double Matrix::offDiagonalSquaredSum(){
 	double sum = 0.0;
 	for(int r = 0; r < _row; r++){
-		for(int c=0; c< _col; c++){
-			if(r!=c)
+		for(int c=r+1; c< _col; c++){
+			//if(r!=c)
 				sum += pow(M[r][c],2); 
 		}
 	}
@@ -862,13 +862,14 @@ vector<double> get_all_real_roots(double* poly, int poly_size){
 
 void atomic_update(Matrix& B, int i, int j){
 	//cout<<"start here"<<endl;
-	//Matrix P(B);
+	Matrix P(B.get_row(),B.get_col());
 	//compute c and s
         double ii = B.M[i][i];
 	double ij = B.M[i][j];
-	double ji = B.M[j][i];
+	double ji = B.M[i][j];
 	double jj = B.M[j][j];
 	//cout<<"after i, ij, ji, jj here"<<endl;
+
 	double tau = (jj-ii)/(2*ij);	
 	int sign = 0;
 	if(tau>=0){
@@ -882,28 +883,35 @@ void atomic_update(Matrix& B, int i, int j){
 
 	//i-th and j-th row
 	//cout<<"i-th and j-th row update"<<endl;	
-	for(int k=0; k< B.get_col(); k++){
-		if(k!=i || k!=j){
-			B.M[i][k] = B.M[i][k] + ((c-1)*B.M[i][k]-s*B.M[j][k]); 
-			B.M[j][k] = B.M[i][k] + ((c-1)*B.M[j][k]+s*B.M[i][k]); 
-		}
+	for(int k=i+1; k< j; k++){
+			P.M[i][k] = ((c-1)*B.M[i][k]-s*B.M[k][j]); 
+	}
+	for(int k=j+1; k< B.get_col(); k++){
+			P.M[j][k] = ((c-1)*B.M[j][k]+s*B.M[i][k]); 
+			P.M[i][k] = ((c-1)*B.M[i][k]-s*B.M[j][k]); 
 	}
 
 	//i-th and j-th column
 	//cout<<"i-th and j-th col update"<<endl;
-	for(int k=0; k< B.get_row(); k++){
-		if(k!=i || k!=j){
-			B.M[k][i] = B.M[k][i] + ((c-1)*B.M[k][i]-s*B.M[k][j]); 
-			B.M[k][j] = B.M[k][j] + (s*B.M[k][i]-(c+1)*B.M[k][j]); 
-		}
+	for(int k=0; k< i; k++){
+			P.M[k][i] = ((c-1)*B.M[k][i]-s*B.M[k][j]); 
+			P.M[k][j] = (s*B.M[k][i]+(c-1)*B.M[k][j]); 
+	}
+	for(int k=i+1; k< j; k++){
+			P.M[k][j] = (s*B.M[i][k]+(c-1)*B.M[k][j]); 
 	}
 
 	//intersection elements (ii-th, ij-th, ji-th and jj-th elements) update
 	//cout<<"intersection  update"<<endl;
-	B.M[i][i] = B.M[i][i] + ((c*c-1)*B.M[i][i] - s*c*B.M[j][i] - c*s*B.M[i][j] + s*s*B.M[j][j]);
-	B.M[i][j] = B.M[i][j] + (s*c*B.M[i][i] - c*s*B.M[j][j] - s*s*B.M[j][i] + (c*c-1)*B.M[i][j]);
-	B.M[j][i] = B.M[j][i] + (c*s*B.M[i][i] + (c*c-1)*B.M[j][i] - s*s*B.M[i][j] - s*c*B.M[j][j]);
-	B.M[j][j] = B.M[j][j] + (s*s*B.M[i][i] + s*c*B.M[j][i] + c*s*B.M[i][j] + (c*c-1)*B.M[j][j]);
+	P.M[i][i] = ((c*c-1)*B.M[i][i] - 2*s*c*B.M[j][i] + s*s*B.M[j][j]);
+	P.M[i][j] = (s*c*B.M[i][i] - c*s*B.M[j][j] - s*s*B.M[i][j] + (c*c-1)*B.M[i][j]);
+	//P.M[j][i] = (c*s*B.M[i][i] + (c*c-1)*B.M[j][i] - s*s*B.M[i][j] - s*c*B.M[j][j]);
+	P.M[j][j] = (s*s*B.M[i][i] + s*c*B.M[i][j] + c*s*B.M[i][j] + (c*c-1)*B.M[j][j]);
+
+        for (int i=0; i<B.get_row(); ++i)
+        for (int j=i; j<B.get_col(); ++j)
+#pragma omp atomic
+          B.M[i][j] += P.M[i][j];
 	
 	//B = J.transpose() * B * J;
 	//return P;
@@ -948,7 +956,7 @@ void sequentialAlgo1(){
 	
 }
 
-void parallelAlgo1(){
+void parallelAlgo1(int max_iter){
 	//cout<<<<endl;
 	int num_items = 20; int row = num_items; int col = num_items;
 	double* off_diag_avg_sum = new double[num_items];
@@ -957,8 +965,8 @@ void parallelAlgo1(){
 	Matrix B1(num_items,num_items,A);
 	//B.print_M();
 	
-	cout<<"************************************************************"<<endl;
-	cout<<"parallel implementation"<<endl;
+	//cout<<"************************************************************"<<endl;
+	//cout<<"parallel implementation"<<endl;
 	num_items = 20; row = num_items; col = num_items;	
 	Matrix B(num_items,num_items,A);
 	vector<pair<int,int>> pairs;	
@@ -971,10 +979,10 @@ void parallelAlgo1(){
 
 	Matrix jt_array[pairs_size]; 
 	Matrix j_array[pairs_size];
-	for(int mi = 0; mi < 500; mi++){
-		double avg_sum = B.offDiagonalSquaredSum()/(B.get_row() * B.get_col());
-		cout<<avg_sum<<" ";
-		off_diag_avg_sum[mi] = avg_sum;
+	for(int mi = 0; mi < max_iter; mi++){
+		double avg_sum = 2*B.offDiagonalSquaredSum()/(B.get_row() * (B.get_col()-1));
+		cout<<mi+1 << "\t" << avg_sum<< endl;
+		//off_diag_avg_sum[mi] = avg_sum;
 		if(avg_sum<1.0e-15){
                         //cout<<"iteration  = "<<mi<< " Avg Sum = " << avg_sum <<endl;
 			//break;
@@ -985,15 +993,17 @@ void parallelAlgo1(){
 		
 		//#pragma omp parallel //schedule(dynamic,10) nowait
 		//#pragma omp for nowait
-		#pragma omp parallel for num_threads(4)
-		for(int pidx=0; pidx< pairs.size(); pidx++){
-			int i = pairs[pidx].first;
-			int j = pairs[pidx].second;			
+//		#pragma omp parallel num_threads(4)
+		//for(int pidx=0; pidx< pairs.size(); pidx++){
+                {
+			int i = rand() % (num_items-1); //pairs[pidx].first;
+			int j = i + 1 + rand() % (num_items - i - 1); // pairs[pidx].second;			
 			//Matrix J(row,col);
 			//J.get_identity();
 			//set_cs(J,i,j,B.get_M(i,i),B.get_M(i,j),B.get_M(j,i),B.get_M(j,j));
 			//B = J.transpose() * B * J;
-			//cout<<"called"<<endl;
+			//cout<<"called"<<endl
+			//#pragma omp critical
 		        atomic_update(B,i,j);
 			//cout<<"returned"<<endl;						
 			clock_t end = clock();
@@ -1094,10 +1104,10 @@ void print_gsl_matrix(gsl_matrix* M){
 #include "multicore.cpp"
 
 
-int main(){	
+int main(int argc, char **argv){	
 	//tensor_svd_sequential();	
 	//tensor_svd_multicore();
-        parallelAlgo1();
+        parallelAlgo1(atoi(argv[1]));
 	//sequentialAlgo1();
 	return 0;
 }
