@@ -953,8 +953,8 @@ void sequentialAlgo1(Matrix &A, int max_iter, int num_threads, int num_items, of
 				normal_update(B, &P, i, j);
 				double avg_sum = 2*B.offDiagonalSquaredSum()/(B.get_row() * (B.get_col()-1));
 				f<< ++iter_count << "\t" << avg_sum<< endl;
-				if(avg_sum<1.0e-15){
-					//break;
+				if(avg_sum<1.0e-50){
+					break;
 				}		
 			}
 		}
@@ -978,9 +978,9 @@ void parallelAlgo1(const Matrix &A, int max_iter, int num_threads, int num_items
 		double avg_sum = 2*B.offDiagonalSquaredSum()/(B.get_row() * (B.get_col()-1));
 		f<<mi+1 << "\t" << avg_sum<< endl;
 		//off_diag_avg_sum[mi] = avg_sum;
-		if(avg_sum<1.0e-15){
+		if(avg_sum<1.0e-5){
 			//cout<<"iteration  = "<<mi<< " Avg Sum = " << avg_sum <<endl;
-			//break;
+			break;
 		}		
 		//cout<<"iteration  = "<<mi<< " Avg Sum = " << avg_sum <<endl;
 		clock_t begin = clock();
@@ -991,7 +991,9 @@ void parallelAlgo1(const Matrix &A, int max_iter, int num_threads, int num_items
 		{
                         int tid = omp_get_thread_num();
 			int i = rand() % (num_items-1); //pairs[pidx].first;
-			int j = i + 1 + rand() % (num_items - i - 1); // pairs[pidx].second;			
+			int j = i + 1 + rand() % (num_items - i - 1); // pairs[pidx].second;
+			//#pragma omp critical
+			//cout<<"thread is -> "<< tid << " : " <<"("<<i<<","<<j<<")"<<endl;			
                         compute_delta(B, P[tid], i, j);
 		        atomic_update(B, P[tid], i, j);
 		}	
