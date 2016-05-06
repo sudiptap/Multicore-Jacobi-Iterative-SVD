@@ -909,11 +909,11 @@ void compute_delta(Matrix& B, Vector *P0, Vector *P1, Vector *P2, Vector *P3, in
 	//P->M[i][i] = ((c*c-1)*B.M[i][i] - 2*s*c*B.M[j][i] + s*s*B.M[j][j]);
 	double pii = ((c*c-1)*B.M[i][i] - 2*s*c*B.M[j][i] + s*s*B.M[j][j]);
 	P0->V[i] = pii;
-	P2->V[i] = pii;
+	//P2->V[i] = pii;
 	//P->M[i][j] = (s*c*B.M[i][i] - c*s*B.M[j][j] - s*s*B.M[i][j] + (c*c-1)*B.M[i][j]);
 	double pij = (s*c*B.M[i][i] - c*s*B.M[j][j] - s*s*B.M[i][j] + (c*c-1)*B.M[i][j]);
 	P0->V[j] = pij;
-	P3->V[i] = pij;
+	//P3->V[i] = pij;
 	//P->M[j][i] = (c*s*B.M[i][i] + (c*c-1)*B.M[j][i] - s*s*B.M[i][j] - s*c*B.M[j][j]);
 	double pji = (c*s*B.M[i][i] + (c*c-1)*B.M[j][i] - s*s*B.M[i][j] - s*c*B.M[j][j]);
 	P1->V[i] = pji; 
@@ -922,6 +922,83 @@ void compute_delta(Matrix& B, Vector *P0, Vector *P1, Vector *P2, Vector *P3, in
 	double pjj = (s*s*B.M[i][i] + s*c*B.M[i][j] + c*s*B.M[i][j] + (c*c-1)*B.M[j][j]);
 	P1->V[j] = pjj;
 	P3->V[j] = pjj;
+
+}
+
+
+void compute_atomic_delta(Matrix& B, int i, int j) {
+        double ii = B.M[i][i];
+	double ij = B.M[i][j];
+	double ji = B.M[i][j];
+	double jj = B.M[j][j];
+	//cout<<"after i, ij, ji, jj here"<<endl;
+
+	double tau = (jj-ii)/(2*ij);	
+	int sign = 0;
+	if(tau>=0){
+		sign = 1;
+	}else{
+		sign = -1;
+	}
+	double t = sign * (1 - lamda)/(abs(tau) + sqrt(pow(tau,2) + (1 - pow(lamda,2))));
+	double c = 1 / (sqrt(1 + pow(t,2)));
+	double s = c * t;
+
+	//i-th and j-th row
+	//cout<<"i-th and j-th row update"<<endl;	
+	for(int k=i; k< j; k++){
+			//P->M[i][k] = ((c-1)*B.M[i][k]-s*B.M[k][j]);
+			//P0->V[k] = ((c-1)*B.M[i][k]-s*B.M[k][j]); 
+			#pragma omp atomic
+			B.M[i][k] += ((c-1)*B.M[i][k]-s*B.M[k][j]); 
+	}
+	for(int k=j; k< B.get_col(); k++){
+			//P->M[j][k] = ((c-1)*B.M[j][k]+s*B.M[i][k]); 
+			#pragma omp atomic
+			B.M[j][k] += ((c-1)*B.M[j][k]+s*B.M[i][k]);
+			#pragma omp atomic
+			//P->M[i][k] = ((c-1)*B.M[i][k]-s*B.M[j][k]);
+			B.M[i][k] += ((c-1)*B.M[i][k]-s*B.M[j][k]);
+	}
+
+	//i-th and j-th column
+	//cout<<"i-th and j-th col update"<<endl;
+	for(int k=0; k< i; k++){
+			//P->M[k][i] = ((c-1)*B.M[k][i]-s*B.M[k][j]); 
+			#pragma omp atomic
+			B.M[k][i] += ((c-1)*B.M[k][i]-s*B.M[k][j]); 
+			//P->M[k][j] = (s*B.M[k][i]+(c-1)*B.M[k][j]);
+			#pragma omp atomic
+			B.M[k][j] += (s*B.M[k][i]+(c-1)*B.M[k][j]);
+	}
+	for(int k=i; k< j; k++){
+			//P->M[k][j] = (s*B.M[i][k]+(c-1)*B.M[k][j]); 
+			#pragma omp atomic
+			B.M[k][j] += (s*B.M[i][k]+(c-1)*B.M[k][j]); 
+	}
+
+//	//intersection elements (ii-th, ij-th, ji-th and jj-th elements) update
+//	//cout<<"intersection  update"<<endl;
+//	#pragma omp atomic
+//	B.M[i][i] += ((c*c-1)*B.M[i][i] - 2*s*c*B.M[j][i] + s*s*B.M[j][j]);
+//	//double pii = ((c*c-1)*B.M[i][i] - 2*s*c*B.M[j][i] + s*s*B.M[j][j]);
+//	//P0->V[i] = pii;
+//	//P2->V[i] = pii;
+//	#pragma omp atomic
+//	B.M[i][j] += (s*c*B.M[i][i] - c*s*B.M[j][j] - s*s*B.M[i][j] + (c*c-1)*B.M[i][j]);
+//	//double pij = (s*c*B.M[i][i] - c*s*B.M[j][j] - s*s*B.M[i][j] + (c*c-1)*B.M[i][j]);
+//	//P0->V[j] = pij;
+//	//P3->V[i] = pij;
+//	#pragma omp atomic
+//	B.M[j][i] += (c*s*B.M[i][i] + (c*c-1)*B.M[j][i] - s*s*B.M[i][j] - s*c*B.M[j][j]);
+//	//double pji = (c*s*B.M[i][i] + (c*c-1)*B.M[j][i] - s*s*B.M[i][j] - s*c*B.M[j][j]);
+//	//P1->V[i] = pji; 
+//	//P2->V[j] = pji;
+//	#pragma omp atomic
+//	B.M[j][j] += (s*s*B.M[i][i] + s*c*B.M[i][j] + c*s*B.M[i][j] + (c*c-1)*B.M[j][j]);
+//	//double pjj = (s*s*B.M[i][i] + s*c*B.M[i][j] + c*s*B.M[i][j] + (c*c-1)*B.M[j][j]);
+//	//P1->V[j] = pjj;
+//	//P3->V[j] = pjj;
 
 }
 
@@ -994,18 +1071,11 @@ void sequentialAlgo1(Matrix &A, int max_iter, int num_threads, int num_items, of
 void parallelAlgo1(const Matrix &A, int max_iter, int num_threads, int num_items, ofstream &f){
 	int row = num_items; int col = num_items;
 	double* off_diag_avg_sum = new double[num_items];
+        pair<int, int> work_load[1024]; 
+        vector<int> idx(num_items);
+        for (int i=0; i<num_items; ++i) idx[i] = i;
 
 	Matrix B(num_items,num_items,A);
-	Vector **P0 = new Vector*[num_threads];
-	Vector **P1 = new Vector*[num_threads];
-	Vector **P2 = new Vector*[num_threads];
-	Vector **P3 = new Vector*[num_threads];
-        for (int th=0; th < num_threads; ++th) {
-           P0[th] = new Vector(B.get_row());
-	   P1[th] = new Vector(B.get_row());
-           P2[th] = new Vector(B.get_col());
-           P3[th] = new Vector(B.get_col());
-        }
 	for(int mi = 0; mi < max_iter; mi++){
 		double avg_sum = 2*B.offDiagonalSquaredSum()/(B.get_row() * (B.get_col()-1));
 		f<<mi+1 << "\t" << avg_sum<< endl;
@@ -1016,30 +1086,29 @@ void parallelAlgo1(const Matrix &A, int max_iter, int num_threads, int num_items
 		}		
 		//cout<<"iteration  = "<<mi<< " Avg Sum = " << avg_sum <<endl;
 		clock_t begin = clock();
-
+                int count = num_items;
+                for (int th=0; th<num_threads; th++) {
+		     int i = rand() % count;
+                     swap(idx[i], idx[--count]);
+                     int j = rand() % count;
+                     swap(idx[j], idx[--count]);
+                     work_load[th] = make_pair(min(idx[count], idx[count+1]), max(idx[count], idx[count+1]));
+                }
+                for (int th=0; th<num_threads; th++) {
+		     cout << "("  << work_load[th].first << "," << work_load[th].second << "),";
+                }
+                cout << endl;
+                 
 		//#pragma omp parallel //schedule(dynamic,10) nowait
 		//#pragma omp for nowait
 #pragma omp parallel num_threads(num_threads)
 		{
                         int tid = omp_get_thread_num();
-			int i = rand() % (num_items-1); //pairs[pidx].first;
-			int j = i + 1 + rand() % (num_items - i - 1); // pairs[pidx].second;
-			//#pragma omp critical
-			//cout<<"thread is -> "<< tid << " : " <<"("<<i<<","<<j<<")"<<endl;			
-                        compute_delta(B, P0[tid], P1[tid], P2[tid], P3[tid], i, j);
-		        atomic_update(B, P0[tid], P1[tid], P2[tid], P3[tid], i, j);
+                        compute_atomic_delta(B, work_load[tid].first, work_load[tid].second);
+		        //atomic_update(B, P0[tid], P1[tid], P2[tid], P3[tid], i, j);
 		}	
 	}
-        for (int th=0; th < num_threads; ++th) {
-           delete P0[th];
-           delete P1[th];
-           delete P2[th];
-           delete P3[th];
-        }
-        delete [] P0;        
-	delete [] P1;
-        delete [] P2;
-        delete [] P3;
+
 }
 
 void mode_one_folding1(gsl_matrix* M, Tensor& T){
@@ -1157,38 +1226,4 @@ int main(int argc, char **argv){
 	par.close();
 	return 0;
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
