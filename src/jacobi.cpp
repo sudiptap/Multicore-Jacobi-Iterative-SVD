@@ -1041,6 +1041,7 @@ void normal_update(Matrix& B, Vector *P0, Vector *P1, Vector *P2, Vector *P3, in
 }
 
 void sequentialAlgo1(Matrix &A, int max_iter, int num_threads, int num_items, ofstream &f){	
+	int iter=0;
 	int row = num_items; int col = num_items;
 	Matrix B(num_items,num_items,A);
 	Vector P0(B.get_row());
@@ -1048,17 +1049,26 @@ void sequentialAlgo1(Matrix &A, int max_iter, int num_threads, int num_items, of
 	Vector P2(B.get_col());
 	Vector P3(B.get_col());
 	int iter_count = 0;
-	for(int mi = 0; mi < max_iter; mi++){
+	bool terminate = false;
+	for(int mi = 0; mi < max_iter && !terminate; mi++){
 		//cout<<"iteration  = "<<mi<< "Avg Sum = " << avg_sum <<endl;
 		clock_t begin = clock();
-		for( int i=0; i< A.get_row()-1; i++){
-			for(int j=i+1; j< A.get_row(); j++){
+		//int i = rand() % (num_items-1); //pairs[pidx].first;
+		//int j = i + 1 + rand() % (num_items - i - 1); // pairs[pidx].second;
+		
+		for( int i=0; i< A.get_row()-1 && !terminate; i++){
+			for(int j=i+1; j< A.get_row() && !terminate; j++){
+				iter++;		
 				compute_delta(B, &P0, &P1, &P2, &P3, i, j);
 		        	normal_update(B, &P0, &P1, &P2, &P3, i, j);
-				double avg_sum = 2*B.offDiagonalSquaredSum()/(B.get_row() * (B.get_col()-1));
-				f<< ++iter_count << "\t" << avg_sum<< endl;
-				if(avg_sum<1.0e-50){
-					//break;
+				if(iter%100==0){
+					double avg_sum = 2*B.offDiagonalSquaredSum()/(B.get_row() * (B.get_col()-1));
+					//avg_sum = 2*2/(B.get_row() * (B.get_col()-1));
+					//f<< ++iter_count << "\t" << avg_sum<< endl;				
+					if(avg_sum<1.0e-15){
+						cout<<"sequentialAlgo1 ---- iteration = "<<iter << ", sum = "<<avg_sum<<endl;
+						terminate =true;
+					}
 				}		
 			}
 		}
@@ -1066,48 +1076,115 @@ void sequentialAlgo1(Matrix &A, int max_iter, int num_threads, int num_items, of
 		double elapsed_secs = double(end - begin) / CLOCKS_PER_SEC;
 		//std::cout << "Elapsed time -> " << elapsed_secs << std::endl;
 	}
+	cout<<iter<<" for sequential"<<endl;
+}
+
+void parallelAlgo(const Matrix &A, int max_iter, int num_threads, int num_items, ofstream &f){
+	int row = num_items; int col = num_items;
+	Matrix B(num_items,num_items,A);
+	int* strt = new int[num_threads];
+	int stride = num_items/num_threads;
+	strt[0] = 0;//cout<<strt[0]<<endl;
+	for(int i=1; i< num_threads; i++){
+		strt[i] = strt[i-1]+stride;		
+	}
+	//Matrix B(num_items,num_items,A);
+	bool terminate = false;
+	int iter=0;
+	double avg_sum = 2*B.offDiagonalSquaredSum()/(B.get_row() * (B.get_col()-1));
+	
+	#pragma omp parallel num_threads(num_threads)
+	{		
+		int tid = omp_get_thread_num();
+		//#pragma omp critical
+		//{
+		//	cout<<tid<<endl; 
+		//}
+		//cout<<tid<<endl;
+		//int i=(strt[tid])%num_items;
+		//int j=(i+1)%num_items;
+		int i = rand() % (num_items-1); //pairs[pidx].first;
+		int j = i + 1 + rand() % (num_items - i - 1); // pairs[pidx].second;
+		while(!terminate){
+			i = rand() % (num_items-1); //pairs[pidx].first;
+			j = i + 1 + rand() % (num_items - i - 1); // pairs[pidx].second;
+			compute_atomic_delta(B, i, j);			
+			//i=(i+1)%num_items; j=(i+1)%num_items;
+		
+			//#pragma omp critical
+			//{
+			//	cout<<tid<<" has i,j "<<i<<" , "<<j<<endl; 
+			//}
+			#pragma omp barrier			
+			if(tid==1){
+				iter++;				
+				if(iter%100==0){					
+					avg_sum = 2*B.offDiagonalSquaredSum()/(B.get_row() * (B.get_col()-1));
+					//f<<mi+1 << "\t" << avg_sum<< endl;	
+					//cout<<avg_sum<<endl;		
+					if(avg_sum<1.0e-15){
+						terminate = true;
+						cout<<"parallelAlgo ---- iteration = "<< iter << ", sum = "<<avg_sum<<endl;
+						terminate = true;
+					}		
+				}
+			}
+			#pragma omp barrier			
+		}
+	}
 }
 
 void parallelAlgo1(const Matrix &A, int max_iter, int num_threads, int num_items, ofstream &f){
+	//cout<<max_iter<<" for parallel"<<endl;
 	int row = num_items; int col = num_items;
-	double* off_diag_avg_sum = new double[num_items];
-        pair<int, int> work_load[1024]; 
-        vector<int> idx(num_items);
-        for (int i=0; i<num_items; ++i) idx[i] = i;
-
+	//double* off_diag_avg_sum = new double[num_items];
+        //pair<int, int> work_load[1024]; 
+        //vector<int> idx(num_items);
+        //for (int i=0; i<num_items; ++i) idx[i] = i;
+	int iter = 0;
 	Matrix B(num_items,num_items,A);
 	for(int mi = 0; mi < max_iter; mi++){
-		double avg_sum = 2*B.offDiagonalSquaredSum()/(B.get_row() * (B.get_col()-1));
-		f<<mi+1 << "\t" << avg_sum<< endl;
-		//off_diag_avg_sum[mi] = avg_sum;
-		if(avg_sum<1.0e-5){
-			//cout<<"iteration  = "<<mi<< " Avg Sum = " << avg_sum <<endl;
-			//break;
-		}		
+		iter++;
+		if(max_iter%100==0){
+			double avg_sum = 2*B.offDiagonalSquaredSum()/(B.get_row() * (B.get_col()-1));
+			//double avg_sum = 2*2/(B.get_row() * (B.get_col()-1));
+			//f<<mi+1 << "\t" << avg_sum<< endl;
+			//off_diag_avg_sum[mi] = avg_sum;
+			if(avg_sum<1.0e-15){
+				//cout<<"iteration  = "<<mi<< " Avg Sum = " << avg_sum <<endl;
+				cout<<"parallelAlgo1 ---- iteration = "<<mi << ", sum = "<<avg_sum<<endl;
+				break;
+			}		
+		}
 		//cout<<"iteration  = "<<mi<< " Avg Sum = " << avg_sum <<endl;
-		clock_t begin = clock();
-                int count = num_items;
-                for (int th=0; th<num_threads; th++) {
-		     int i = rand() % count;
-                     swap(idx[i], idx[--count]);
-                     int j = rand() % count;
-                     swap(idx[j], idx[--count]);
-                     work_load[th] = make_pair(min(idx[count], idx[count+1]), max(idx[count], idx[count+1]));
-                }
-                for (int th=0; th<num_threads; th++) {
-		     cout << "("  << work_load[th].first << "," << work_load[th].second << "),";
-                }
-                cout << endl;
+		//clock_t begin = clock();
+                //int count = num_items;
+	
+                //for (int th=0; th<num_threads; th++) {
+		//     int i = rand() % count;
+                //     swap(idx[i], idx[--count]);
+                //     int j = rand() % count;
+                //     swap(idx[j], idx[--count]);
+                //     work_load[th] = make_pair(min(idx[count], idx[count+1]), max(idx[count], idx[count+1]));
+                //}
+                //for (int th=0; th<num_threads; th++) {
+		//     cout << "("  << work_load[th].first << "," << work_load[th].second << "),";
+                //}
+                //cout << endl;
                  
 		//#pragma omp parallel //schedule(dynamic,10) nowait
 		//#pragma omp for nowait
 #pragma omp parallel num_threads(num_threads)
 		{
-                        int tid = omp_get_thread_num();
-                        compute_atomic_delta(B, work_load[tid].first, work_load[tid].second);
+                        //int tid = omp_get_thread_num();
+                        //compute_atomic_delta(B, work_load[tid].first, work_load[tid].second);
+			int i = rand() % (num_items-1); //pairs[pidx].first;
+			int j = i + 1 + rand() % (num_items - i - 1); // pairs[pidx].second;
+			compute_atomic_delta(B, i, j);
 		        //atomic_update(B, P0[tid], P1[tid], P2[tid], P3[tid], i, j);
 		}	
 	}
+	cout<<"parallel ---- iteration = "<<iter<<endl;
 
 }
 
@@ -1201,9 +1278,11 @@ void print_gsl_matrix(gsl_matrix* M){
 
 
 int main(int argc, char **argv){
+	
 	int max_iter = atoi(argv[1]);
 	int num_threads = atoi(argv[2]);
 	int side_len = atoi(argv[3]);
+	
 	//double convergence_error = atod(argv[4]); 
 	//double fit_change_error = atod(argv[5]);
 	//tensor_svd_sequential();	
@@ -1213,10 +1292,15 @@ int main(int argc, char **argv){
         ofstream par("parallel.dat");
 	A.init_symmetric_matrix(); //A.print_M();
 	double start, end;
-        start = omp_get_wtime();
+        start = omp_get_wtime();	
 	parallelAlgo1(A, max_iter*side_len*(side_len-1)/2, num_threads, side_len, par);
         end = omp_get_wtime();
-        cout << "time taken by parallel (" << num_threads << " threads) = " << end-start << endl;
+        cout << "time taken by parallelAlgo1 (" << num_threads << " threads) = " << end-start << endl;
+
+	start = omp_get_wtime();	
+	parallelAlgo(A, max_iter*side_len*(side_len-1)/2, num_threads, side_len, par);
+        end = omp_get_wtime();
+        cout << "time taken by parallelAlgo (" << num_threads << " threads) = " << end-start << endl;
 
         start = omp_get_wtime();
 	sequentialAlgo1(A, max_iter, num_threads, side_len, seq);
@@ -1224,6 +1308,39 @@ int main(int argc, char **argv){
         cout << "time taken by sequential = " << end-start << endl;
 	seq.close();
 	par.close();
+	
+	/*
+	Matrix A(side_len,side_len);
+	A.init_symmetric_matrix();
+
+	gsl_matrix* B = gsl_matrix_alloc(side_len,side_len);
+	for(int i=0; i< side_len; i++){
+		for(int j=0; j< side_len; j++){
+			gsl_matrix_set(B,i,j,A.M[i][j]);
+		}
+	}
+	double start, end;
+        start = omp_get_wtime();
+	//for(int iter=0; iter< 10000000; iter++){
+	//	int i= rand() % side_len;
+	//	int j= rand() % side_len;
+	//	//double rnd = rand();
+	//	gsl_matrix_set(B,i,0,0.9);
+	//}
+	end = omp_get_wtime();	
+	cout << "time taken by BLAS = " << end-start << endl;
+	
+
+	start = omp_get_wtime();
+	for(int iter=0; iter< 10000000; iter++){
+		int i= rand() % side_len;
+		int j= rand() % side_len;
+		// rnd = rand();
+		A.M[i][0] = 0.6;
+	}
+	end = omp_get_wtime();	
+	cout << "time taken by my program = " << end-start << endl;
+	*/
 	return 0;
 }
 
