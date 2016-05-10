@@ -12,6 +12,7 @@
 #include <gsl/gsl_poly.h>
 #include <gsl/gsl_blas.h>
 #include <gsl/gsl_matrix.h>
+//#include <gsl_spmatrix.h>
 #include <omp.h>
 #include <ctime>
 #include <fstream>
@@ -325,6 +326,17 @@ double Matrix::offDiagonalSquaredSum(){
 		for(int c=r+1; c< _col; c++){
 			//if(r!=c)
 				sum += pow(M[r][c],2); 
+		}
+	}
+	return sum;
+}
+
+double offDiagonalSquaredSum_GSL(gsl_matrix* B){	
+	double sum = 0.0;
+	for(int r = 0; r < B->size1; r++){
+		for(int c=r+1; c< B->size2; c++){
+			//if(r!=c)				
+				sum += pow(gsl_matrix_get(B,r,c),2); 
 		}
 	}
 	return sum;
@@ -925,6 +937,93 @@ void compute_delta(Matrix& B, Vector *P0, Vector *P1, Vector *P2, Vector *P3, in
 
 }
 
+void compute_delta_BLAS(gsl_matrix* B, gsl_vector *P0, gsl_vector *P1, gsl_vector *P2, gsl_vector *P3, int i, int j) {
+        double ii = gsl_matrix_get(B,i,i);
+	double ij = gsl_matrix_get(B,i,j);
+	double ji = gsl_matrix_get(B,i,j);
+	double jj = gsl_matrix_get(B,j,j);
+	//cout<<"after i, ij, ji, jj here"<<endl;
+
+	double tau = (jj-ii)/(2*ij);	
+	int sign = 0;
+	if(tau>=0){
+		sign = 1;
+	}else{
+		sign = -1;
+	}
+	double t = sign * (1 - lamda)/(abs(tau) + sqrt(pow(tau,2) + (1 - pow(lamda,2))));
+	double c = 1 / (sqrt(1 + pow(t,2)));
+	double s = c * t;
+
+	//i-th and j-th row
+	//cout<<"i-th and j-th row update"<<endl;	
+	for(int k=i+1; k< j; k++){
+			//P->M[i][k] = ((c-1)*B.M[i][k]-s*B.M[k][j]);
+			gsl_vector_set(P0,k,((c-1)*gsl_matrix_get(B,i,k)-s*gsl_matrix_get(B,k,j))); 
+	}
+	for(int k=j+1; k< B->size2; k++){
+			//P->M[j][k] = ((c-1)*B.M[j][k]+s*B.M[i][k]); 
+			gsl_vector_set(P1,k,((c-1)*gsl_matrix_get(B,j,k)+s*gsl_matrix_get(B,i,k))); 
+			//P1->V[k] = ((c-1)*B.M[j][k]+s*B.M[i][k]);
+			//P->M[i][k] = ((c-1)*B.M[i][k]-s*B.M[j][k]);
+			//P0->V[k] = ((c-1)*B.M[i][k]-s*B.M[j][k]);
+			gsl_vector_set(P0,k,((c-1)*gsl_matrix_get(B,i,k)-s*gsl_matrix_get(B,j,k))); 
+	}
+
+	//i-th and j-th column
+	//cout<<"i-th and j-th col update"<<endl;
+	for(int k=0; k< i; k++){
+			//P->M[k][i] = ((c-1)*B.M[k][i]-s*B.M[k][j]); 
+			//P2->V[k] = ((c-1)*B.M[k][i]-s*B.M[k][j]);
+			gsl_vector_set(P2,k,((c-1)*gsl_matrix_get(B,k,i)-s*gsl_matrix_get(B,k,j)));  
+			//P->M[k][j] = (s*B.M[k][i]+(c-1)*B.M[k][j]);
+			//P3->V[k] = (s*B.M[k][i]+(c-1)*B.M[k][j]);
+			gsl_vector_set(P3,k,(s*gsl_matrix_get(B,k,i)+(c-1)*gsl_matrix_get(B,k,j))); 
+	}
+	for(int k=i+1; k< j; k++){
+			//P->M[k][j] = (s*B.M[i][k]+(c-1)*B.M[k][j]); 
+			//P3->V[k] = (s*B.M[i][k]+(c-1)*B.M[k][j]); 
+			gsl_vector_set(P3,k,(s*gsl_matrix_get(B,i,k)+(c-1)*gsl_matrix_get(B,k,j))); 
+	}
+
+	//intersection elements (ii-th, ij-th, ji-th and jj-th elements) update
+	//cout<<"intersection  update"<<endl;
+	//P->M[i][i] = ((c*c-1)*B.M[i][i] - 2*s*c*B.M[j][i] + s*s*B.M[j][j]);
+	double pii = ((c*c-1)*gsl_matrix_get(B,i,i) - 2*s*c*gsl_matrix_get(B,j,i) + s*s*gsl_matrix_get(B,j,j));
+	gsl_vector_set(P0,i,pii);
+	//P2->V[i] = pii;
+	//P->M[i][j] = (s*c*B.M[i][i] - c*s*B.M[j][j] - s*s*B.M[i][j] + (c*c-1)*B.M[i][j]);
+	double pij = (s*c*gsl_matrix_get(B,i,i) - c*s*gsl_matrix_get(B,j,j) - s*s*gsl_matrix_get(B,i,j) + (c*c-1)*gsl_matrix_get(B,i,j));
+	gsl_vector_set(P0,j,pij);
+	//P3->V[i] = pij;
+	//P->M[j][i] = (c*s*B.M[i][i] + (c*c-1)*B.M[j][i] - s*s*B.M[i][j] - s*c*B.M[j][j]);
+	double pji = (c*s*gsl_matrix_get(B,i,i) + (c*c-1)*gsl_matrix_get(B,j,i) - s*s*gsl_matrix_get(B,i,j) - s*c*gsl_matrix_get(B,j,j));
+	gsl_vector_set(P1,i,pji); 
+	gsl_vector_set(P2,j,pji);
+	//P->M[j][j] = (s*s*B.M[i][i] + s*c*B.M[i][j] + c*s*B.M[i][j] + (c*c-1)*B.M[j][j]);
+	double pjj = (s*s*gsl_matrix_get(B,i,i) + s*c*gsl_matrix_get(B,i,j) + c*s*gsl_matrix_get(B,i,j) + (c*c-1)*gsl_matrix_get(B,j,j));
+	gsl_vector_set(P1,j,pjj);
+	gsl_vector_set(P3,j,pjj);
+
+}
+
+double get_theta(gsl_matrix* B, int i, int j){
+	double ii = gsl_matrix_get(B,i,i);
+	double ij = gsl_matrix_get(B,i,j);
+	double ji = gsl_matrix_get(B,i,j);
+	double jj = gsl_matrix_get(B,j,j);
+	//cout<<"after i, ij, ji, jj here"<<endl;
+
+	double tau = (jj-ii)/(2*ij);	
+	int sign = 0;
+	if(tau>=0){
+		sign = 1;
+	}else{
+		sign = -1;
+	}
+	double t = sign * (1 - lamda)/(abs(tau) + sqrt(pow(tau,2) + (1 - pow(lamda,2))));
+	return t;
+}
 
 void compute_atomic_delta(Matrix& B, int i, int j) {
         double ii = B.M[i][i];
@@ -950,19 +1049,23 @@ void compute_atomic_delta(Matrix& B, int i, int j) {
 			//P->M[i][k] = ((c-1)*B.M[i][k]-s*B.M[k][j]);
 			//P0->V[k] = ((c-1)*B.M[i][k]-s*B.M[k][j]); 
 			#pragma omp atomic
-			B.M[i][k] += ((c-1)*B.M[i][k]-s*B.M[k][j]); 
+			//B.M[i][k] += ((c-1)*B.M[i][k]-s*B.M[k][j]); 
+			B.M[i][k] += ((c-1)*B.M[i][k]-s*B.M[i][j]); 
 	}
 	for(int k=j; k< B.get_col(); k++){
 			//P->M[j][k] = ((c-1)*B.M[j][k]+s*B.M[i][k]); 
 			#pragma omp atomic
-			B.M[j][k] += ((c-1)*B.M[j][k]+s*B.M[i][k]);
+			//B.M[j][k] += ((c-1)*B.M[j][k]+s*B.M[i][k]);
+			B.M[j][k] += ((c-1)*B.M[j][k]+s*B.M[j][k]);
 			#pragma omp atomic
 			//P->M[i][k] = ((c-1)*B.M[i][k]-s*B.M[j][k]);
-			B.M[i][k] += ((c-1)*B.M[i][k]-s*B.M[j][k]);
+			//B.M[i][k] += ((c-1)*B.M[i][k]-s*B.M[j][k]);
+			B.M[i][k] += ((c-1)*B.M[i][k]-s*B.M[i][k]);
 	}
 
 	//i-th and j-th column
 	//cout<<"i-th and j-th col update"<<endl;
+	/*
 	for(int k=0; k< i; k++){
 			//P->M[k][i] = ((c-1)*B.M[k][i]-s*B.M[k][j]); 
 			#pragma omp atomic
@@ -975,7 +1078,7 @@ void compute_atomic_delta(Matrix& B, int i, int j) {
 			//P->M[k][j] = (s*B.M[i][k]+(c-1)*B.M[k][j]); 
 			#pragma omp atomic
 			B.M[k][j] += (s*B.M[i][k]+(c-1)*B.M[k][j]); 
-	}
+	}*/
 
 //	//intersection elements (ii-th, ij-th, ji-th and jj-th elements) update
 //	//cout<<"intersection  update"<<endl;
@@ -1040,6 +1143,84 @@ void normal_update(Matrix& B, Vector *P0, Vector *P1, Vector *P2, Vector *P3, in
         }
 }
 
+void normal_update_BLAS(gsl_matrix* B, gsl_vector *P0, gsl_vector *P1, gsl_vector *P2, gsl_vector *P3, int i, int j){
+        int row = B->size1;
+        int col = B->size2;
+        for (int k=0; k<col; ++k) {
+          //B.M[i][k] += P->M[i][k];
+	    //B.M[i][k] += P0->V[k];
+	    gsl_matrix_set(B,i,k,(gsl_matrix_get(B,i,k)+gsl_vector_get(P0,k)));
+          //B.M[j][k] += P->M[j][k];
+	    //B.M[j][k] += P1->V[k];
+	    gsl_matrix_set(B,j,k,(gsl_matrix_get(B,j,k)+gsl_vector_get(P1,k)));
+        }
+        for (int k=0; k<row; ++k) {
+          //B.M[k][i] += P->M[k][i];
+ 	    //B.M[k][i] += P2->V[k];
+	    gsl_matrix_set(B,k,i,(gsl_matrix_get(B,k,i)+gsl_vector_get(P2,k)));
+          //B.M[k][j] += P->M[k][j];
+	    //B.M[k][j] += P3->V[k];
+	    gsl_matrix_set(B,k,j,(gsl_matrix_get(B,k,j)+gsl_vector_get(P3,k)));
+        }
+}
+
+
+void sequentialAlgo_BLAS(gsl_matrix* A, int max_iter, int num_threads, int num_items, ofstream &f){	
+	int iter=0;
+	int row = num_items; int col = num_items;
+	//Matrix B(num_items,num_items,A);
+	gsl_matrix* B = gsl_matrix_alloc(num_items, num_items);
+	gsl_matrix_memcpy(B,A);
+	//Vector P0(B.get_row());
+	//Vector P1(B.get_row());
+	//Vector P2(B.get_col());
+	//Vector P3(B.get_col());
+	gsl_vector* P0 = gsl_vector_alloc(B->size1);
+	gsl_vector* P1 = gsl_vector_alloc(B->size1);
+	gsl_vector* P2 = gsl_vector_alloc(B->size2);
+	gsl_vector* P3 = gsl_vector_alloc(B->size2);
+
+	int iter_count = 0;
+	bool terminate = false;
+	//gsl_matrix* J = gsl_matrix_alloc(B->size1, B->size2);
+	//gsl_matrix_set_identity(J1);
+	//gsl_spmatrix* J;
+	//gsl_spmatrix_d2sp(J,J1); gsl_matrix_free(J1);
+	for(int mi = 0; mi < max_iter && !terminate; mi++){
+		//cout<<"iteration  = "<<mi<< "Avg Sum = " << avg_sum <<endl;
+		clock_t begin = clock();
+		//int i = rand() % (num_items-1); //pairs[pidx].first;
+		//int j = i + 1 + rand() % (num_items - i - 1); // pairs[pidx].second;
+	
+		for( int i=0; i< A->size1-1 && !terminate; i++){
+			for(int j=i+1; j< A->size1 && !terminate; j++){
+				double t = get_theta(B,i,j);
+				double c = 1 / (sqrt(1 + pow(t,2)));
+				double s = c * t;				
+				iter++;				
+				compute_delta_BLAS(B, P0, P1, P2, P3, i, j);
+		        	normal_update_BLAS(B, P0, P1, P2, P3, i, j);				
+				if(iter%1000==0){
+					//cout<<iter<<" - start"<<endl;
+					double avg_sum = 2*offDiagonalSquaredSum_GSL(B)/(B->size1 * (B->size2-1));
+					//cout<<iter<<" - end"<<endl;
+					//avg_sum = 2*2/(B.get_row() * (B.get_col()-1));
+					//f<< ++iter_count << "\t" << avg_sum<< endl;				
+					//cout<< ++iter_count << "\t" << avg_sum<< endl;				
+					if(avg_sum<1.0e-15){
+						cout<<"sequentialAlgo1 ---- iteration = "<<iter << ", sum = "<<avg_sum<<endl;
+						terminate =true;
+					}
+				}		
+			}
+		}
+		clock_t end = clock();		
+		double elapsed_secs = double(end - begin) / CLOCKS_PER_SEC;
+		//std::cout << "Elapsed time -> " << elapsed_secs << std::endl;
+	}
+	cout<<iter<<" for sequential"<<endl;
+}
+
 void sequentialAlgo1(Matrix &A, int max_iter, int num_threads, int num_items, ofstream &f){	
 	int iter=0;
 	int row = num_items; int col = num_items;
@@ -1061,8 +1242,10 @@ void sequentialAlgo1(Matrix &A, int max_iter, int num_threads, int num_items, of
 				iter++;		
 				compute_delta(B, &P0, &P1, &P2, &P3, i, j);
 		        	normal_update(B, &P0, &P1, &P2, &P3, i, j);
-				if(iter%100==0){
+				if(iter%1000==0){
+					//cout<<iter<<" - start"<<endl;
 					double avg_sum = 2*B.offDiagonalSquaredSum()/(B.get_row() * (B.get_col()-1));
+					//cout<<iter<<" - end"<<endl;
 					//avg_sum = 2*2/(B.get_row() * (B.get_col()-1));
 					//f<< ++iter_count << "\t" << avg_sum<< endl;				
 					if(avg_sum<1.0e-15){
@@ -1101,34 +1284,55 @@ void parallelAlgo(const Matrix &A, int max_iter, int num_threads, int num_items,
 		//	cout<<tid<<endl; 
 		//}
 		//cout<<tid<<endl;
-		//int i=(strt[tid])%num_items;
-		//int j=(i+1)%num_items;
-		int i = rand() % (num_items-1); //pairs[pidx].first;
-		int j = i + 1 + rand() % (num_items - i - 1); // pairs[pidx].second;
-		while(!terminate){
-			i = rand() % (num_items-1); //pairs[pidx].first;
-			j = i + 1 + rand() % (num_items - i - 1); // pairs[pidx].second;
+		int i=(strt[tid]);
+		int j=(i+1);
+		//int i = rand() % (num_items-1); //pairs[pidx].first;
+		//int j = i + 1 + rand() % (num_items - i - 1); // pairs[pidx].second;
+		while(iter<10){
+			//i = rand() % (num_items-1); //pairs[pidx].first;
+			//j = i + 1 + rand() % (num_items - i - 1); // pairs[pidx].second;
+			if(j==num_items-1){
+				i=(i+1);
+				j=(i+1);				
+			}
+			if(i==num_items-1){
+				i=0;
+				j=i+1;
+			}
+			#pragma omp critical
+						{
+							cout<<tid << " : " <<i << "," << j<<endl;
+							 
+						}
+						//cout<<tid<<endl;
+			
 			compute_atomic_delta(B, i, j);			
-			//i=(i+1)%num_items; j=(i+1)%num_items;
-		
-			//#pragma omp critical
-			//{
-			//	cout<<tid<<" has i,j "<<i<<" , "<<j<<endl; 
-			//}
-			#pragma omp barrier			
+			
+			//i=(i+1)%num_items; 
+			//j=(i+1)%num_items;									
 			if(tid==1){
 				iter++;				
-				if(iter%100==0){					
+				if(true){									
 					avg_sum = 2*B.offDiagonalSquaredSum()/(B.get_row() * (B.get_col()-1));
-					//f<<mi+1 << "\t" << avg_sum<< endl;	
-					//cout<<avg_sum<<endl;		
+					
+					//f<<mi+1 << "\t" << avg_sum<< endl;						
 					if(avg_sum<1.0e-15){
 						terminate = true;
 						cout<<"parallelAlgo ---- iteration = "<< iter << ", sum = "<<avg_sum<<endl;
 						terminate = true;
+					}else{
+						#pragma omp critical
+						{
+							cout<<avg_sum<<endl;
+							if(std::isnan(avg_sum)){
+								cout<<"nan"<<endl;exit(1);
+							} 
+						}
+						//cout<<tid<<endl;	
 					}		
 				}
 			}
+			j++;
 			#pragma omp barrier			
 		}
 	}
@@ -1282,7 +1486,25 @@ int main(int argc, char **argv){
 	int max_iter = atoi(argv[1]);
 	int num_threads = atoi(argv[2]);
 	int side_len = atoi(argv[3]);
+
+	gsl_matrix* A = gsl_matrix_alloc(side_len,side_len);
+	ofstream seq("sequential.dat");
+	Matrix temp(side_len,side_len);
+	temp.init_symmetric_matrix();
+	for(int i=0; i<A->size1; i++){
+		for(int j=0; j< A->size2; j++){
+			gsl_matrix_set(A,i,j,temp.M[i][j]);
+		}
+	}
 	
+	//cout<<"calling"<<endl;
+	double start, end;
+	start = omp_get_wtime();
+	sequentialAlgo_BLAS(A, max_iter, num_threads, side_len, seq);
+        end = omp_get_wtime();
+        cout << "time taken by sequential = " << end-start << endl;
+	seq.close();
+	/*
 	//double convergence_error = atod(argv[4]); 
 	//double fit_change_error = atod(argv[5]);
 	//tensor_svd_sequential();	
@@ -1293,54 +1515,24 @@ int main(int argc, char **argv){
 	A.init_symmetric_matrix(); //A.print_M();
 	double start, end;
         start = omp_get_wtime();	
-	parallelAlgo1(A, max_iter*side_len*(side_len-1)/2, num_threads, side_len, par);
+	//parallelAlgo1(A, max_iter*side_len*(side_len-1)/2, num_threads, side_len, par);
         end = omp_get_wtime();
         cout << "time taken by parallelAlgo1 (" << num_threads << " threads) = " << end-start << endl;
 
 	start = omp_get_wtime();	
 	parallelAlgo(A, max_iter*side_len*(side_len-1)/2, num_threads, side_len, par);
         end = omp_get_wtime();
-        cout << "time taken by parallelAlgo (" << num_threads << " threads) = " << end-start << endl;
-
+        cout << "time taken by parallelAlgo (" << num_threads << " threads) = " << end-start << endl;*/
+	
         start = omp_get_wtime();
-	sequentialAlgo1(A, max_iter, num_threads, side_len, seq);
+	sequentialAlgo1(temp, max_iter, num_threads, side_len, seq);
         end = omp_get_wtime();
         cout << "time taken by sequential = " << end-start << endl;
 	seq.close();
-	par.close();
-	
-	/*
-	Matrix A(side_len,side_len);
-	A.init_symmetric_matrix();
-
-	gsl_matrix* B = gsl_matrix_alloc(side_len,side_len);
-	for(int i=0; i< side_len; i++){
-		for(int j=0; j< side_len; j++){
-			gsl_matrix_set(B,i,j,A.M[i][j]);
-		}
-	}
-	double start, end;
-        start = omp_get_wtime();
-	//for(int iter=0; iter< 10000000; iter++){
-	//	int i= rand() % side_len;
-	//	int j= rand() % side_len;
-	//	//double rnd = rand();
-	//	gsl_matrix_set(B,i,0,0.9);
-	//}
-	end = omp_get_wtime();	
-	cout << "time taken by BLAS = " << end-start << endl;
+	//par.close();*/
 	
 
-	start = omp_get_wtime();
-	for(int iter=0; iter< 10000000; iter++){
-		int i= rand() % side_len;
-		int j= rand() % side_len;
-		// rnd = rand();
-		A.M[i][0] = 0.6;
-	}
-	end = omp_get_wtime();	
-	cout << "time taken by my program = " << end-start << endl;
-	*/
+	
 	return 0;
 }
 
