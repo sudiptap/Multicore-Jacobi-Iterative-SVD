@@ -892,16 +892,16 @@ void compute_delta(Matrix& B, int i, int j) {
 
 	//i-th and j-th row
 	//cout<<"i-th and j-th row update"<<endl;	
-	for(int k=i+1; k< j; k++){
+	for(int k=i; k< j; k++){
 			//P->M[i][k] = ((c-1)*B.M[i][k]-s*B.M[k][j]);
 			//P0->V[k] = ((c-1)*B.M[i][k]-s*B.M[k][j]); 
 			B.M[i][k] += ((c-1)*B.M[i][k]-s*B.M[k][j]); 
 	}
-	for(int k=j+1; k< B.get_col(); k++){
+	for(int k=j; k< B.get_col(); k++){
 			//P->M[j][k] = ((c-1)*B.M[j][k]+s*B.M[i][k]); 
 			B.M[j][k] = ((c-1)*B.M[j][k]+s*B.M[i][k]);
 			//P->M[i][k] = ((c-1)*B.M[i][k]-s*B.M[j][k]);
-			B.M[j][k] = ((c-1)*B.M[i][k]-s*B.M[j][k]);
+			B.M[j][k] += ((c-1)*B.M[i][k]-s*B.M[j][k]);
 	}
 
 	//i-th and j-th column
@@ -910,11 +910,11 @@ void compute_delta(Matrix& B, int i, int j) {
 			//P->M[k][i] = ((c-1)*B.M[k][i]-s*B.M[k][j]); 
 			B.M[k][i] = ((c-1)*B.M[k][i]-s*B.M[k][j]); 
 			//P->M[k][j] = (s*B.M[k][i]+(c-1)*B.M[k][j]);
-			B.M[k][j] = (s*B.M[k][i]+(c-1)*B.M[k][j]);
+			B.M[k][j] += (s*B.M[k][i]+(c-1)*B.M[k][j]);
 	}
-	for(int k=i+1; k< j; k++){
+	for(int k=i; k< j; k++){
 			//P->M[k][j] = (s*B.M[i][k]+(c-1)*B.M[k][j]); 
-			B.M[k][j] = (s*B.M[i][k]+(c-1)*B.M[k][j]); 
+			B.M[k][j] += (s*B.M[i][k]+(c-1)*B.M[k][j]); 
 	}
 
 	//intersection elements (ii-th, ij-th, ji-th and jj-th elements) update
