@@ -12,6 +12,7 @@
 #include <gsl/gsl_poly.h>
 #include <gsl/gsl_blas.h>
 #include <gsl/gsl_matrix.h>
+#include <gsl/gsl_linalg.h>
 //#include <gsl_spmatrix.h>
 #include <omp.h>
 #include <ctime>
@@ -20,6 +21,26 @@
 #include <iterator>
 #include <algorithm>
 #include <cfloat>
+
+//#include <gsl/gsl_config.h>
+#include <stdlib.h>
+#include <string.h>
+#include <gsl/gsl_math.h>
+#include <gsl/gsl_vector.h>
+#include <gsl/gsl_matrix.h>
+#include <gsl/gsl_blas.h>
+ 
+#include <gsl/gsl_linalg.h>
+ 
+#define HAVE_EXTENDED_PRECISION_REGISTERS 1
+
+#if HAVE_EXTENDED_PRECISION_REGISTERS
+#define GSL_COERCE_DBL(x) (gsl_coerce_double(x))
+#else
+#define GSL_COERCE_DBL(x) (x)
+#endif
+
+//#include "svdstep.c"
 
 using namespace std;
 
@@ -193,7 +214,7 @@ class Matrix{
 		double get_norm(string which_norm);
 		Matrix get_hadamard_power(double exponent);
 		Matrix getTopKCols(int k);
-
+		Vector get_column(int c);
 		/*Jacobi related*/
 		
 
@@ -872,7 +893,7 @@ vector<double> get_all_real_roots(double* poly, int poly_size){
 	return real_roots;
 }
 
-void compute_delta(Matrix& B, int i, int j) {
+void compute_delta(Matrix& B, Vector* P0, Vector* P1, Vector* P2, Vector* P3, int i, int j) {
         double ii = B.M[i][i];
 	double ij = B.M[i][j];
 	double ji = B.M[i][j];
@@ -892,49 +913,44 @@ void compute_delta(Matrix& B, int i, int j) {
 
 	//i-th and j-th row
 	//cout<<"i-th and j-th row update"<<endl;	
-	for(int k=i; k< j; k++){
+	for(int k=i+1; k< j; k++){
 			//P->M[i][k] = ((c-1)*B.M[i][k]-s*B.M[k][j]);
-			//P0->V[k] = ((c-1)*B.M[i][k]-s*B.M[k][j]); 
-			B.M[i][k] += ((c-1)*B.M[i][k]-s*B.M[k][j]); 
+			P0->V[k] = ((c-1)*B.M[i][k]-s*B.M[k][j]); 
+			//B.M[i][k] += ((c-1)*B.M[i][k]-s*B.M[k][j]); 
 	}
-	for(int k=j; k< B.get_col(); k++){
-			//P->M[j][k] = ((c-1)*B.M[j][k]+s*B.M[i][k]); 
-			B.M[j][k] = ((c-1)*B.M[j][k]+s*B.M[i][k]);
-			//P->M[i][k] = ((c-1)*B.M[i][k]-s*B.M[j][k]);
-			B.M[j][k] += ((c-1)*B.M[i][k]-s*B.M[j][k]);
+	for(int k=j+1; k< B.get_col(); k++){			
+			P1->V[k] = ((c-1)*B.M[j][k]+s*B.M[i][k]);			
+			P0->V[k] = ((c-1)*B.M[i][k]-s*B.M[j][k]);
 	}
 
 	//i-th and j-th column
 	//cout<<"i-th and j-th col update"<<endl;
 	for(int k=0; k< i; k++){
-			//P->M[k][i] = ((c-1)*B.M[k][i]-s*B.M[k][j]); 
-			B.M[k][i] = ((c-1)*B.M[k][i]-s*B.M[k][j]); 
-			//P->M[k][j] = (s*B.M[k][i]+(c-1)*B.M[k][j]);
-			B.M[k][j] += (s*B.M[k][i]+(c-1)*B.M[k][j]);
+			P2->V[k] = ((c-1)*B.M[k][i]-s*B.M[k][j]);
+			P3->V[k] = (s*B.M[k][i]+(c-1)*B.M[k][j]);
 	}
-	for(int k=i; k< j; k++){
-			//P->M[k][j] = (s*B.M[i][k]+(c-1)*B.M[k][j]); 
-			B.M[k][j] += (s*B.M[i][k]+(c-1)*B.M[k][j]); 
+	for(int k=i+1; k< j; k++){
+			P3->V[k] = (s*B.M[i][k]+(c-1)*B.M[k][j]); 
 	}
 
 	//intersection elements (ii-th, ij-th, ji-th and jj-th elements) update
 	//cout<<"intersection  update"<<endl;
 	//P->M[i][i] = ((c*c-1)*B.M[i][i] - 2*s*c*B.M[j][i] + s*s*B.M[j][j]);
-	//double pii = ((c*c-1)*B.M[i][i] - 2*s*c*B.M[j][i] + s*s*B.M[j][j]);
-	//P0->V[i] = pii;
-	//P2->V[i] = pii;
+	double pii = ((c*c-1)*B.M[i][i] - 2*s*c*B.M[j][i] + s*s*B.M[j][j]);
+	P0->V[i] = pii;
+	P2->V[i] = pii;
 	//P->M[i][j] = (s*c*B.M[i][i] - c*s*B.M[j][j] - s*s*B.M[i][j] + (c*c-1)*B.M[i][j]);
-	//double pij = (s*c*B.M[i][i] - c*s*B.M[j][j] - s*s*B.M[i][j] + (c*c-1)*B.M[i][j]);
-	//P0->V[j] = pij;
-	//P3->V[i] = pij;
+	double pij = (s*c*B.M[i][i] - c*s*B.M[j][j] - s*s*B.M[i][j] + (c*c-1)*B.M[i][j]);
+	P0->V[j] = pij;
+	P3->V[i] = pij;
 	//P->M[j][i] = (c*s*B.M[i][i] + (c*c-1)*B.M[j][i] - s*s*B.M[i][j] - s*c*B.M[j][j]);
-	//double pji = (c*s*B.M[i][i] + (c*c-1)*B.M[j][i] - s*s*B.M[i][j] - s*c*B.M[j][j]);
-	//P1->V[i] = pji; 
-	//P2->V[j] = pji;
+	double pji = (c*s*B.M[i][i] + (c*c-1)*B.M[j][i] - s*s*B.M[i][j] - s*c*B.M[j][j]);
+	P1->V[i] = pji; 
+	P2->V[j] = pji;
 	//P->M[j][j] = (s*s*B.M[i][i] + s*c*B.M[i][j] + c*s*B.M[i][j] + (c*c-1)*B.M[j][j]);
-	//double pjj = (s*s*B.M[i][i] + s*c*B.M[i][j] + c*s*B.M[i][j] + (c*c-1)*B.M[j][j]);
-	//P1->V[j] = pjj;
-	//P3->V[j] = pjj;
+	double pjj = (s*s*B.M[i][i] + s*c*B.M[i][j] + c*s*B.M[i][j] + (c*c-1)*B.M[j][j]);
+	P1->V[j] = pjj;
+	P3->V[j] = pjj;
 
 }
 
@@ -1222,14 +1238,673 @@ void sequentialAlgo_BLAS(gsl_matrix* A, int max_iter, int num_threads, int num_i
 	cout<<iter<<" for sequential"<<endl;
 }
 
+void parallelAlgo1(const Matrix &A, int max_iter, int num_threads, int num_items, ofstream &f){
+	//cout<<max_iter<<" for parallel"<<endl;
+	int row = num_items; int col = num_items;
+	//double* off_diag_avg_sum = new double[num_items];
+        //pair<int, int> work_load[1024]; 
+        //vector<int> idx(num_items);
+        //for (int i=0; i<num_items; ++i) idx[i] = i;
+	int iter = 0;
+	Matrix B(num_items,num_items,A);
+	for(int mi = 0; mi < max_iter; mi++){
+		iter++;
+		if(max_iter%100==0){
+			double avg_sum = 2*B.offDiagonalSquaredSum()/(B.get_row() * (B.get_col()-1));
+			//double avg_sum = 2*2/(B.get_row() * (B.get_col()-1));
+			//f<<mi+1 << "\t" << avg_sum<< endl;
+			//off_diag_avg_sum[mi] = avg_sum;
+			if(avg_sum<1.0e-15){
+				//cout<<"iteration  = "<<mi<< " Avg Sum = " << avg_sum <<endl;
+				cout<<"parallelAlgo1 ---- iteration = "<<mi << ", sum = "<<avg_sum<<endl;
+				break;
+			}		
+		}
+		//cout<<"iteration  = "<<mi<< " Avg Sum = " << avg_sum <<endl;
+		//clock_t begin = clock();
+                //int count = num_items;
+	
+                //for (int th=0; th<num_threads; th++) {
+		//     int i = rand() % count;
+                //     swap(idx[i], idx[--count]);
+                //     int j = rand() % count;
+                //     swap(idx[j], idx[--count]);
+                //     work_load[th] = make_pair(min(idx[count], idx[count+1]), max(idx[count], idx[count+1]));
+                //}
+                //for (int th=0; th<num_threads; th++) {
+		//     cout << "("  << work_load[th].first << "," << work_load[th].second << "),";
+                //}
+                //cout << endl;
+                 
+		//#pragma omp parallel //schedule(dynamic,10) nowait
+		//#pragma omp for nowait
+#pragma omp parallel num_threads(num_threads)
+		{
+                        //int tid = omp_get_thread_num();
+                        //compute_atomic_delta(B, work_load[tid].first, work_load[tid].second);
+			int i = rand() % (num_items-1); //pairs[pidx].first;
+			int j = i + 1 + rand() % (num_items - i - 1); // pairs[pidx].second;
+			compute_atomic_delta(B, i, j);
+		        //atomic_update(B, P0[tid], P1[tid], P2[tid], P3[tid], i, j);
+		}	
+	}
+	cout<<"parallel ---- iteration = "<<iter<<endl;
+
+}
+
+Vector Matrix::get_column(int c){
+	Vector Vec(_row);
+	for(int i=0; i< _row; i++){
+		Vec.V[i] = M[i][c];
+	}
+	return Vec;
+}
+
+double ddot(Vector &v1, Vector &v2){
+	double p = 0.0;
+	for(int i=0; i< v1.get_len(); i++){
+		p += v1.V[i]*v2.V[i];
+	}
+	return p;
+}
+
+double get_norm2(Vector &v){
+	double d_norm2 = 0.0;
+	for(int i=0; i< v.get_len(); i++){
+		d_norm2 += v.V[i];
+	}
+	return d_norm2;
+}
+
+void vector_set_zero(Vector &vec){
+	for(int i=0; i< vec.get_len(); i++){
+		vec.V[i] = 0;
+	}
+}
+
+void vector_scale(Vector &vec, double d){
+	for(int i=0; i< vec.get_len(); i++){
+		vec.V[i] *= d;
+	}
+}
+int gsl_linalg_SV_decomp_jacobi_2 (gsl_matrix * A, gsl_matrix * Q, gsl_vector * S)
+   {
+	//cout<<A->size1<<endl;
+	//cout<<A->size2<<endl;
+     Matrix A1(A->size1, A->size2);
+     Matrix Q1(Q->size2, Q->size2);
+     Vector S1(S->size);
+     for(int i=0; i< A->size1; i++){
+	for(int j=0;j < A->size2; j++){
+		A1.M[i][j] = gsl_matrix_get(A,i,j); 
+	}
+     }
+     for(int i=0; i< Q->size1; i++){
+	for(int j=0;j < Q->size2; j++){
+		Q1.M[i][j] = gsl_matrix_get(Q,i,j); 
+	}
+     }
+     for(int i=0; i< S->size; i++){
+	S1.V[i] = gsl_vector_get(S,i);
+     }
+     if (A1.get_row() < A1.get_col())
+       {        
+   
+         GSL_ERROR ("svd of MxN matrix, M<N, is not implemented", GSL_EUNIMPL);
+       }
+     else if (Q1.get_row() != A1.get_col())
+       {
+         GSL_ERROR ("square matrix Q must match second dimension of matrix A",
+                    GSL_EBADLEN);
+       }
+     else if (Q1.get_row() != Q1.get_col())
+       {
+         GSL_ERROR ("matrix Q must be square", GSL_ENOTSQR);
+       }
+     else if (S1.get_len() != A1.get_col())
+       {
+         GSL_ERROR ("length of vector S must match second dimension of matrix A",
+                    GSL_EBADLEN);
+       }
+     else
+       {
+ 
+         const size_t M = A1.get_row();//A->size1;
+         const size_t N = A1.get_col();//A->size2
+	//cout<<M<<endl;
+	//cout<<N<<endl;exit(1);
+         //size_t i, j, k;
+   
+         
+         int count = 1;
+         int sweep = 0;
+         int sweepmax = 40*20*4*N;
+   
+         double tolerance = 10 * M * GSL_DBL_EPSILON;
+   
+         
+         sweepmax = GSL_MAX (sweepmax, 12);
+   
+        
+         //gsl_matrix_set_identity (Q);
+	Q1.get_identity();
+   
+         
+   
+         for (int j = 0; j < N; j++)
+           {
+             //gsl_vector_view cj = gsl_matrix_column (A, j);
+             //double sj = gsl_blas_dnrm2 (&cj.vector);
+		double sj = 0.0;
+	 	for(int i=0; i< M; i++){
+			sj += A1.M[i][j] * A1.M[i][j];
+		}
+		sj = sqrt(sj);
+             //gsl_vector_set(S, j, GSL_DBL_EPSILON * sj);
+		S1.V[j] =  GSL_DBL_EPSILON * sj;
+           }
+       
+         
+ 
+         while (count > 0 && sweep <= sweepmax)
+           {
+		
+		
+		//#pragma omp critical
+		//{
+			//cout<<j<<","<<k<<endl;
+		//	cout<<"sweep = "<<sweep<<endl;
+		//}
+            
+             count = N * (N - 1) / 2;
+
+             //for (j = 0; j < N - 1; j++)
+               //{
+                 //for (k = j + 1; k < N; k++)
+		#pragma omp parallel num_threads(4)
+		{
+                        //int tid = omp_get_thread_num();                        
+			int j = rand() % (N-1); 
+			int k = j + 1 + rand() % (N - j - 1);                
+		   
+		 	//#pragma omp critical
+			//{
+			//	cout<<j<<","<<k<<endl;
+				//cout<<idx<<endl;
+			//}	
+			
+                     double a = 0.0;
+                     double b = 0.0;
+                     double p = 0.0;
+                     double q = 0.0;
+                     double cosine, sine;
+                     double v;
+                     double abserr_a, abserr_b;
+                     int sorted, orthog, noisya, noisyb;
+   
+                     //gsl_vector_view cj = gsl_matrix_column (A, j);
+                     //gsl_vector_view ck = gsl_matrix_column (A, k);
+			Vector cj = A1.get_column(j);
+			Vector ck = A1.get_column(k);
+   
+                     //gsl_blas_ddot (&cj.vector, &ck.vector, &p);
+		 	p = ddot(cj,ck);
+                     p *= 2.0 ;  
+   
+                     //a = gsl_blas_dnrm2 (&cj.vector);
+                     //b = gsl_blas_dnrm2 (&ck.vector);
+			a = get_norm2(cj);
+			b = get_norm2(ck);
+   
+                     q = a * a - b * b;
+                     v = hypot(p, q);
+   
+                     
+   
+                     //abserr_a = gsl_vector_get(S,j);
+                     //abserr_b = gsl_vector_get(S,k);
+			abserr_a = S1.V[j];
+			abserr_b = S1.V[k];
+   
+                     sorted = (GSL_COERCE_DBL(a) >= GSL_COERCE_DBL(b));
+                     orthog = (fabs (p) <= tolerance * GSL_COERCE_DBL(a * b));
+                     noisya = (a < abserr_a);
+                     noisyb = (b < abserr_b);
+
+                     if (sorted && (orthog || noisya || noisyb))
+                       {
+                         //count--;
+                         //continue;
+			  j = rand() % (N-1); 
+			  k = j + 1 + rand() % (N - j - 1); 
+                       }
+   
+                     
+                     if (v == 0 || !sorted)
+                       {
+                         cosine = 0.0;
+                         sine = 1.0;
+                       }
+                     else
+                       {
+                         cosine = sqrt((v + q) / (2.0 * v));
+                         sine = p / (2.0 * v * cosine);
+                       }
+   
+                   
+                     for (int i = 0; i < M; i++)
+                     {
+                     	//const double Aik = gsl_matrix_get (A, i, k);
+                         //const double Aij = gsl_matrix_get (A, i, j);
+			const double Aik = A1.M[i][k];
+			const double Aij = A1.M[i][j];         	         	  
+
+			double delta_Aij = (Aij * (cosine-1) + Aik * sine);
+			 #pragma omp atomic
+			A1.M[i][j] += delta_Aij;
+		
+                         double delta_Aik = -Aij * sine + Aik * (cosine-1);
+			 #pragma omp atomic
+			A1.M[i][k] += delta_Aik;
+			 
+                     }
+			double delta_sj = (fabs(cosine) * abserr_a + fabs(sine) * abserr_b) - S1.V[j];
+   		     	#pragma omp atomic
+			S1.V[j] += delta_sj;	
+		     
+			double delta_sk = (fabs(sine) * abserr_a + fabs(cosine) * abserr_b) - S1.V[k];
+		     	#pragma omp atomic
+			S1.V[k] += delta_sk;
+		     
+    		     //gsl_vector_set(S, j, fabs(cosine) * abserr_a + fabs(sine) * abserr_b);
+                     //gsl_vector_set(S, k, fabs(sine) * abserr_a + fabs(cosine) * abserr_b);
+   
+                   
+                     for (int i = 0; i < N; i++)
+                       {
+			
+                         //const double Qij = gsl_matrix_get (Q, i, j);
+                         //const double Qik = gsl_matrix_get (Q, i, k);
+			const double Qij = Q1.M[i][j];
+			const double Qik = Q1.M[i][k];
+			double delta_Qij = Qij * (cosine-1) + Qik * sine;
+
+			 #pragma omp atomic
+			Q1.M[i][j] += delta_Qij;
+			 
+			double delta_Qik = -Qij * sine + Qik * (cosine-1);
+
+			 #pragma omp atomic
+			Q1.M[i][k] += delta_Qik;
+
+
+                         //gsl_matrix_set (Q, i, j, Qij * cosine + Qik * sine);
+                         //gsl_matrix_set (Q, i, k, -Qij * sine + Qik * cosine);
+                       }
+                        				//cout<<"here"<<endl;
+                   }
+
+               //}
+   /*check for termination*/
+         for (int j = 0; j < N - 1; j++)
+         {
+                for (int k = j + 1; k < N; k++)
+		{
+			Vector cj = A1.get_column(j);
+			Vector ck = A1.get_column(k);
+   
+                     //gsl_blas_ddot (&cj.vector, &ck.vector, &p);
+		 	double p = ddot(cj,ck);
+                     p *= 2.0 ;  
+   
+                     //a = gsl_blas_dnrm2 (&cj.vector);
+                     //b = gsl_blas_dnrm2 (&ck.vector);
+		    double a = get_norm2(cj);
+		    double b = get_norm2(ck);
+   
+                    double q = a * a - b * b;
+                     double v = hypot(p, q);
+   
+                     
+   
+                     //abserr_a = gsl_vector_get(S,j);
+                     //abserr_b = gsl_vector_get(S,k);
+			double abserr_a = S1.V[j];
+			double abserr_b = S1.V[k];
+   
+                     bool sorted = (GSL_COERCE_DBL(a) >= GSL_COERCE_DBL(b));
+                     bool orthog = (fabs (p) <= tolerance * GSL_COERCE_DBL(a * b));
+                     bool noisya = (a < abserr_a);
+                     bool noisyb = (b < abserr_b);
+
+                     if (sorted && (orthog || noisya || noisyb))
+                       {
+                           count--;
+                           continue;
+			  //j = rand() % (N-1); 
+			  //k = j + 1 + rand() % (N - j - 1); 
+                       }
+		}
+	 }
+	cout<<"count ---> " << count <<endl;
+	if(count==0)
+		exit(0);
+ /*check for termination*/
+             sweep++;
+
+           }
+
+   
+       //cout<<"out of while"<<endl; 
+   
+         {
+           double prev_norm = -1.0;
+   
+           for (int j = 0; j < N; j++)
+             {
+               //gsl_vector_view column = gsl_matrix_column (A, j);
+		Vector column = A1.get_column(j);
+               //double norm = gsl_blas_dnrm2 (&column.vector);
+		double norm = get_norm2(column);
+   
+              
+   
+               if (norm == 0.0 || prev_norm == 0.0 
+                   || (j > 0 && norm <= tolerance * prev_norm))
+                 {
+                   //gsl_vector_set (S, j, 0.0);     
+		   S1.V[j] = 0.0;
+                   //gsl_vector_set_zero (&column.vector);   
+		   vector_set_zero(column);  
+		   
+                   prev_norm = 0.0;
+                 }
+               else
+                 {
+                   //gsl_vector_set (S, j, norm);    
+		   S1.V[j] = norm;
+                   //gsl_vector_scale (&column.vector, 1.0 / norm);  
+		   vector_scale(column, 1.0/norm);
+   
+                   prev_norm = norm;
+                 }
+             }
+         }
+	 count  = N*(N-1)/2;
+   	 for (int j = 0; j < N - 1; j++)
+         {
+                for (int k = j + 1; k < N; k++)
+		{
+			Vector cj = A1.get_column(j);
+			Vector ck = A1.get_column(k);
+   
+                     //gsl_blas_ddot (&cj.vector, &ck.vector, &p);
+		 	double p = ddot(cj,ck);
+                     p *= 2.0 ;  
+   
+                     //a = gsl_blas_dnrm2 (&cj.vector);
+                     //b = gsl_blas_dnrm2 (&ck.vector);
+		    double a = get_norm2(cj);
+		    double b = get_norm2(ck);
+   
+                    double q = a * a - b * b;
+                     double v = hypot(p, q);
+   
+                     
+   
+                     //abserr_a = gsl_vector_get(S,j);
+                     //abserr_b = gsl_vector_get(S,k);
+			double abserr_a = S1.V[j];
+			double abserr_b = S1.V[k];
+   
+                     bool sorted = (GSL_COERCE_DBL(a) >= GSL_COERCE_DBL(b));
+                     bool orthog = (fabs (p) <= tolerance * GSL_COERCE_DBL(a * b));
+                     bool noisya = (a < abserr_a);
+                     bool noisyb = (b < abserr_b);
+
+                     if (sorted && (orthog || noisya || noisyb))
+                       {
+                           count--;
+                           continue;
+			  //j = rand() % (N-1); 
+			  //k = j + 1 + rand() % (N - j - 1); 
+                       }
+		}
+	 }
+	cout<<"count ---> " << count;
+         if (count > 0)
+           {
+            
+             GSL_ERROR ("Jacobi iterations did not reach desired tolerance",
+                        GSL_ETOL);
+           }
+   
+         return GSL_SUCCESS;
+       }
+}
+
+
+
+
+int gsl_linalg_SV_decomp_jacobi_1 (gsl_matrix * A, gsl_matrix * Q, gsl_vector * S)
+   {
+     if (A->size1 < A->size2)
+       {
+         /* FIXME: only implemented  M>=N case so far */
+   
+         GSL_ERROR ("svd of MxN matrix, M<N, is not implemented", GSL_EUNIMPL);
+       }
+     else if (Q->size1 != A->size2)
+       {
+         GSL_ERROR ("square matrix Q must match second dimension of matrix A",
+                    GSL_EBADLEN);
+       }
+     else if (Q->size1 != Q->size2)
+       {
+         GSL_ERROR ("matrix Q must be square", GSL_ENOTSQR);
+       }
+     else if (S->size != A->size2)
+       {
+         GSL_ERROR ("length of vector S must match second dimension of matrix A",
+                    GSL_EBADLEN);
+       }
+     else
+       {
+         const size_t M = A->size1;
+         const size_t N = A->size2;
+         size_t i, j, k;
+   
+         /* Initialize the rotation counter and the sweep counter. */
+         int count = 1;
+         int sweep = 0;
+         int sweepmax = 5*N;
+   
+         double tolerance = 10 * M * GSL_DBL_EPSILON;
+   
+         /* Always do at least 12 sweeps. */
+         sweepmax = GSL_MAX (sweepmax, 12);
+   
+         /* Set Q to the identity matrix. */
+         gsl_matrix_set_identity (Q);
+
+         /* Store the column error estimates in S, for use during the
+            orthogonalization */
+   
+         for (j = 0; j < N; j++)
+           {
+             gsl_vector_view cj = gsl_matrix_column (A, j);
+             double sj = gsl_blas_dnrm2 (&cj.vector);
+             gsl_vector_set(S, j, GSL_DBL_EPSILON * sj);
+           }
+
+       vector<pair<int,int> > indices;
+	for(int j=0; j< N-1; j++){
+		for(int k=j+1; k< N; k++){
+			indices.push_back(make_pair(j,k));
+		}
+	}
+         /* Orthogonalize A by plane rotations. */
+ 
+         while (count > 0 && sweep <= sweepmax)
+           {
+             /* Initialize rotation counter. */
+             count = N * (N - 1) / 2;
+   
+             //for (j = 0; j < N - 1; j++)
+               //{
+                 //for (k = j + 1; k < N; k++)
+		
+		#pragma omp parallel for num_threads(4)
+		for(int idx = 0; idx< indices.size(); idx++)
+                   {
+		     int j = indices[idx].first;
+		     int k = indices[idx].second;
+                     double a = 0.0;
+                     double b = 0.0;
+                     double p = 0.0;
+                     double q = 0.0;
+                     double cosine, sine;
+                     double v;
+                     double abserr_a, abserr_b;
+                     int sorted, orthog, noisya, noisyb;
+   
+                     gsl_vector_view cj = gsl_matrix_column (A, j);
+                     gsl_vector_view ck = gsl_matrix_column (A, k);
+   
+                     gsl_blas_ddot (&cj.vector, &ck.vector, &p);
+                     p *= 2.0 ;  /* equation 9a:  p = 2 x.y */
+   
+                     a = gsl_blas_dnrm2 (&cj.vector);
+                     b = gsl_blas_dnrm2 (&ck.vector);
+   
+                     q = a * a - b * b;
+                     v = hypot(p, q);
+   
+                     /* test for columns j,k orthogonal, or dominant errors */
+   
+                     abserr_a = gsl_vector_get(S,j);
+                     abserr_b = gsl_vector_get(S,k);
+   
+                     sorted = (GSL_COERCE_DBL(a) >= GSL_COERCE_DBL(b));
+                     orthog = (fabs (p) <= tolerance * GSL_COERCE_DBL(a * b));
+                     noisya = (a < abserr_a);
+                     noisyb = (b < abserr_b);
+   
+                     if (sorted && (orthog || noisya || noisyb))
+                       {
+                         count--;
+                         continue;
+                       }
+   
+                     /* calculate rotation angles */
+                     if (v == 0 || !sorted)
+                       {
+                         cosine = 0.0;
+                         sine = 1.0;
+                       }
+                     else
+                       {
+                         cosine = sqrt((v + q) / (2.0 * v));
+                         sine = p / (2.0 * v * cosine);
+                       }
+   
+                     /* apply rotation to A */
+                     for (i = 0; i < M; i++)
+                       {
+                         const double Aik = gsl_matrix_get (A, i, k);
+                         const double Aij = gsl_matrix_get (A, i, j);
+			 #pragma omp atomic
+			i+=1;
+			 gsl_matrix_set (A, i, j, (Aij * (cosine-1) + Aik * sine));
+                         //gsl_matrix_set (A, i, j, Aij * cosine + Aik * sine);
+			 #pragma omp atomic
+			i+=1;
+			 gsl_matrix_set (A, i, k, -Aij * sine + Aik * (cosine-1));
+                         //gsl_matrix_set (A, i, k, -Aij * sine + Aik * cosine);
+                       }
+   		     #pragma omp atomic
+			i+=1;
+		     gsl_vector_set(S, j, fabs(cosine) * abserr_a + fabs(sine) * abserr_b);
+		     #pragma omp atomic
+			i+=1;
+		     gsl_vector_set(S, k, fabs(sine) * abserr_a + fabs(cosine) * abserr_b);
+    		     //gsl_vector_set(S, j, fabs(cosine) * abserr_a + fabs(sine) * abserr_b);
+                     //gsl_vector_set(S, k, fabs(sine) * abserr_a + fabs(cosine) * abserr_b);
+   
+                     /* apply rotation to Q */
+                     for (i = 0; i < N; i++)
+                       {
+                         const double Qij = gsl_matrix_get (Q, i, j);
+                         const double Qik = gsl_matrix_get (Q, i, k);
+			 #pragma omp atomic
+			i+=1;
+			 gsl_matrix_set (Q, i, j, Qij * (cosine-1) + Qik * sine);
+			 #pragma omp atomic
+			i+=1;
+                         gsl_matrix_set (Q, i, k, -Qij * sine + Qik * (cosine-1));
+                         //gsl_matrix_set (Q, i, j, Qij * cosine + Qik * sine);
+                         //gsl_matrix_set (Q, i, k, -Qij * sine + Qik * cosine);
+                       }
+                   }
+               //}
+   
+             /* Sweep completed. */
+             sweep++;
+           }
+   
+         /* 
+          * Orthogonalization complete. Compute singular values.
+          */
+   
+         {
+           double prev_norm = -1.0;
+   
+           for (int j = 0; j < N; j++)
+             {
+               gsl_vector_view column = gsl_matrix_column (A, j);
+               double norm = gsl_blas_dnrm2 (&column.vector);
+   
+               /* Determine if singular value is zero, according to the
+                  criteria used in the main loop above (i.e. comparison
+                  with norm of previous column). */
+   
+               if (norm == 0.0 || prev_norm == 0.0 
+                   || (j > 0 && norm <= tolerance * prev_norm))
+                 {
+                   gsl_vector_set (S, j, 0.0);     /* singular */
+                   gsl_vector_set_zero (&column.vector);   /* annihilate column */
+   
+                   prev_norm = 0.0;
+                 }
+               else
+                 {
+                   gsl_vector_set (S, j, norm);    /* non-singular */
+                   gsl_vector_scale (&column.vector, 1.0 / norm);  /* normalize column */
+   
+                   prev_norm = norm;
+                 }
+             }
+         }
+   
+         if (count > 0)
+           {
+             /* reached sweep limit */
+             GSL_ERROR ("Jacobi iterations did not reach desired tolerance",
+                        GSL_ETOL);
+           }
+   
+         return GSL_SUCCESS;
+       }
+}
+
 void sequentialAlgo1(Matrix &A, int max_iter, int num_threads, int num_items, ofstream &f){	
 	int iter=0;
 	int row = num_items; int col = num_items;
 	Matrix B(num_items,num_items,A);
-	//Vector P0(B.get_row());
-	//Vector P1(B.get_row());
-	//Vector P2(B.get_col());
-	//Vector P3(B.get_col());
+	Vector P0(B.get_row());
+	Vector P1(B.get_row());
+	Vector P2(B.get_col());
+	Vector P3(B.get_col());
 	int iter_count = 0;
 	bool terminate = false;
 	for(int mi = 0; mi < max_iter && !terminate; mi++){
@@ -1241,14 +1916,15 @@ void sequentialAlgo1(Matrix &A, int max_iter, int num_threads, int num_items, of
 		for( int i=0; i< A.get_row()-1 && !terminate; i++){
 			for(int j=i+1; j< A.get_row() && !terminate; j++){
 				iter++;		
-				compute_delta(B, i, j);
-		        	//normal_update(B, &P0, &P1, &P2, &P3, i, j);
-				if(iter%1000==0){
+				compute_delta(B, &P0, &P1, &P2, &P3, i, j);
+		        	normal_update(B, &P0, &P1, &P2, &P3, i, j);
+				if(iter%100==0){
 					//cout<<iter<<" - start"<<endl;
 					double avg_sum = 2*B.offDiagonalSquaredSum()/(B.get_row() * (B.get_col()-1));
 					//cout<<iter<<" - end"<<endl;
 					//avg_sum = 2*2/(B.get_row() * (B.get_col()-1));
-					//f<< ++iter_count << "\t" << avg_sum<< endl;				
+					//f<< ++iter_count << "\t" << avg_sum<< endl;
+					//cout<<avg_sum<<endl;				
 					if(avg_sum<1.0e-15){
 						cout<<"sequentialAlgo1 ---- iteration = "<<iter << ", sum = "<<avg_sum<<endl;
 						terminate =true;
@@ -1338,8 +2014,7 @@ void parallelAlgo(const Matrix &A, int max_iter, int num_threads, int num_items,
 		}
 	}
 }
-
-void parallelAlgo1(const Matrix &A, int max_iter, int num_threads, int num_items, ofstream &f){
+/*void parallelAlgo1(const Matrix &A, int max_iter, int num_threads, int num_items, ofstream &f){
 	//cout<<max_iter<<" for parallel"<<endl;
 	int row = num_items; int col = num_items;
 	//double* off_diag_avg_sum = new double[num_items];
@@ -1402,8 +2077,7 @@ void mode_one_folding1(gsl_matrix* M, Tensor& T){
 			}
 		}
 	}
-}
-
+}*/
 
 
 Tensor mode1_mul(Tensor& T, gsl_matrix* M){
@@ -1478,6 +2152,103 @@ void print_gsl_matrix(gsl_matrix* M){
 	}
 }
 
+/* one sided jacobi SVD algorithm*/
+/*
+int sign(int x){
+	if(x>0)
+		return 1;
+	else
+		return -1;
+}
+
+// takes matrizes U,S,V and returns matrizes U,S,V s.t. S is positive, and
+// ordered in descending order
+// this only works for 2x2 matrizes
+void fixSVD(gsl_matrix* U, gsl_matrix* S, gsl_matrix* V){
+	gsl_matrix* Z = gsl_matrix_alloc(2,2);
+	gsl_matrix_set(Z,0,0,sign(gsl_matrix_get(S,0,0)));
+	gsl_matrix_set(Z,0,1,0);
+	gsl_matrix_set(Z,1,0,0);
+	gsl_matrix_set(Z,1,1,sign(gsl_matrix_get(S,1,1)));
+	
+	gsl_matrix* U_new;
+	gsl_matrix* SP;
+	gsl_matrix* V_new;
+	gsl_matrix* S_new;
+
+	gsl_matrix* P = gsl_matrix_alloc(2,2);
+	gsl_matrix_set(P,0,0,0);
+	gsl_matrix_set(P,0,1,1);
+	gsl_matrix_set(P,1,0,1);
+	gsl_matrix_set(P,1,1,0);
+	
+	gsl_blas_dgemm(CblasNoTrans,CblasNoTrans,1.0,U,P,0.0,U_new);
+	gsl_matrix_memcpy(U,U_new);
+	gsl_blas_dgemm(CblasNoTrans,CblasNoTrans,1.0,S,P,0.0,SP);
+	gsl_blas_dgemm(CblasNoTrans,CblasNoTrans,1.0,P,SP,0.0,S_new);
+	gsl_matrix_memcpy(S,S_new);
+	gsl_blas_dgemm(CblasNoTrans,CblasNoTrans,1.0,P,V,0.0,V_new);
+	gsl_matrix_memcpy(V,V_new);
+}
+
+//calculates the frobenius norm
+double fro(gsl_matrix* M){
+	//gsl_matrix* M2 = gsl_matrix_dgemm(CblasNoTrans,CblasNoTrans,1.0,M,M,0.0,M2);
+	double sum = 0.0;
+	for(int i=0; i< M->size1; i++){
+		for(int j=0; j< M->size2; j++){
+			sum += gsl_matrix_get(M,i,j) * gsl_matrix_get(M,i,j);
+		}
+	}
+	return sqrt(sum);
+}
+
+// given a symmetric 2x2 matrix, computes its svd
+// and returns it in U,S,V, where A = U*S*V, U,V unitary, and S diagonal,
+// where s_i >= 0, and s_i >= s_i+1
+// if called with less than three output arguments, will return only S
+function [Uout,Sout,Vout] = tinySymmetricSVD(A)
+  if (A(2,1) == 0) % case where it's already symmetric
+     S = A;
+     U = eye(2);
+     V = U;
+  else % case where off diagonals are not 0
+     % taken directly from the notes
+     w = A(1,1);
+     y = A(2,1);
+     z = A(2,2);
+     ro = rdivide(minus(z,w),times(2,y));
+     t2 = rdivide(sign(ro),plus(abs(ro),sqrt(plus(times(ro,ro),1))));
+     t = t2;
+     c = rdivide(1,sqrt(plus(1,times(t,t))));
+     s = times(t,c);
+     U = [c, -s; s, c];
+     V = [c,  s;-s, c];
+     S = mtimes(U,mtimes(A,V));
+     U = U';
+     V = V';
+  end
+  % make sure everything is descending etc...
+  [U,S,V] = fixSVD(U,S,V);
+ 
+  % check if we need less than three output arguments
+  if (nargout < 3) 
+      Uout = diag(S);
+  else 
+     Uout = U; Sout = S; Vout = V;
+  end
+end
+
+void tinySymmetricSVD(gsl_matrix* A, ){
+}
+
+void onesided_sequential(){
+		
+}*/
+/* one sided jacobi SVD algorithm*/
+
+
+
 #include "sequential.cpp"
 #include "multicore.cpp"
 
@@ -1486,12 +2257,13 @@ int main(int argc, char **argv){
 	
 	int max_iter = atoi(argv[1]);
 	int num_threads = atoi(argv[2]);
-	int side_len = atoi(argv[3]);
+	int row = atoi(argv[3]);
+	int col = atoi(argv[4]);
 
-	gsl_matrix* A = gsl_matrix_alloc(side_len,side_len);
+	gsl_matrix* A = gsl_matrix_alloc(row,col);
 	ofstream seq("sequential.dat");
-	Matrix temp(side_len,side_len);
-	temp.init_symmetric_matrix();
+	Matrix temp(row,col);
+	temp.init_random_matrix();
 	for(int i=0; i<A->size1; i++){
 		for(int j=0; j< A->size2; j++){
 			gsl_matrix_set(A,i,j,temp.M[i][j]);
@@ -1500,11 +2272,11 @@ int main(int argc, char **argv){
 	
 	//cout<<"calling"<<endl;
 	double start, end;
-	start = omp_get_wtime();
+	//start = omp_get_wtime();
 	//sequentialAlgo_BLAS(A, max_iter, num_threads, side_len, seq);
-        end = omp_get_wtime();
-        cout << "time taken by sequential = " << end-start << endl;
-	seq.close();
+        //end = omp_get_wtime();
+        //cout << "time taken by sequential = " << end-start << endl;
+	//seq.close();
 	/*
 	//double convergence_error = atod(argv[4]); 
 	//double fit_change_error = atod(argv[5]);
@@ -1526,7 +2298,9 @@ int main(int argc, char **argv){
         cout << "time taken by parallelAlgo (" << num_threads << " threads) = " << end-start << endl;*/
 	
         start = omp_get_wtime();
-	sequentialAlgo1(temp, max_iter, num_threads, side_len, seq);
+	//sequentialAlgo1(temp, max_iter, num_threads, side_len, seq);
+	gsl_matrix* V = gsl_matrix_alloc(A->size2, A->size2); gsl_vector* S = gsl_vector_alloc(A->size2);
+	gsl_linalg_SV_decomp_jacobi_2(A, V, S);
         end = omp_get_wtime();
         cout << "time taken by sequential = " << end-start << endl;
 	seq.close();
