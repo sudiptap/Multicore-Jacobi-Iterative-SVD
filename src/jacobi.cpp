@@ -1644,7 +1644,8 @@ int gsl_linalg_SV_decomp_jacobi_2 (gsl_matrix * A, gsl_matrix * Q, gsl_vector * 
 	}
 }
 
-int gsl_linalg_SV_decomp_jacobi_atomic_gsl (gsl_matrix * A, gsl_matrix * Q, gsl_vector * S){	
+int gsl_linalg_SV_decomp_jacobi_atomic_gsl (gsl_matrix * A, gsl_matrix * Q, gsl_vector * S){
+	int num_threads = 1;	
 	if (A->size1 < A->size2){
 		GSL_ERROR ("svd of MxN matrix, M<N, is not implemented", GSL_EUNIMPL);
 	}
@@ -1671,7 +1672,7 @@ int gsl_linalg_SV_decomp_jacobi_atomic_gsl (gsl_matrix * A, gsl_matrix * Q, gsl_
 
 		int count = 1;
 		int sweep = 0;
-		int sweepmax = 5*N;
+		int sweepmax = 5*N*N;
 
 		double tolerance = 10 * M * GSL_DBL_EPSILON;
 
@@ -1687,12 +1688,21 @@ int gsl_linalg_SV_decomp_jacobi_atomic_gsl (gsl_matrix * A, gsl_matrix * Q, gsl_
 			gsl_vector_set(S, j, GSL_DBL_EPSILON * sj);			
 		}
 		
-		vector<pair<int, int> > indices;
+		//vector<pair<int, int> > indices;
+		pair<int, int>  indices[1024];
+		/*
 		for(int j=0; j< N-1; j++){
 			for(int k=j+1; k< N; k++){
 				indices.push_back(make_pair(j,k));	
 			}
-		}
+		}*/
+int last_indx = N;
+	vector<int> idx(N);
+	for (int i=0; i<N; ++i) idx[i] = i;
+
+		//for (int th=0; th<num_threads; th++) {
+		//     cout << "("  << work_load[th].first << "," << work_load[th].second << "),";
+		//}
 
 		while (count > 0 && sweep <= sweepmax){
 			//#pragma omp critical
@@ -1702,14 +1712,27 @@ int gsl_linalg_SV_decomp_jacobi_atomic_gsl (gsl_matrix * A, gsl_matrix * Q, gsl_
 			//}            
 			count = N * (N - 1) / (2);
 
+if (last_indx < 2*num_threads) last_indx = N;
+
+		for (int th=0; th<num_threads; th++) {
+		     int i = rand() % last_indx;
+		     swap(idx[i], idx[--last_indx]);
+		     int j = rand() % last_indx;
+		     swap(idx[j], idx[--last_indx]);
+		     indices[th] = make_pair(min(idx[last_indx], idx[last_indx+1]), max(idx[last_indx], idx[last_indx+1]));
+		}
+
 			//for (int j = 0; j < N - 1; j++)
 			//{
 			//for (int k = j + 1; k < N; k++){
-#pragma omp parallel for num_threads(4) shared (count)
-			for(int idx=0; idx< indices.size(); idx++){
+//#pragma omp parallel for num_threads(4) shared (count)
+#pragma omp parallel num_threads(num_threads)
+		{
+			int tid = omp_get_thread_num();
+			//for(int idx=0; idx< indices.size(); idx++){
 				//int tid = omp_get_thread_num();                        
-				int j = indices[idx].first;
-				int k = indices[idx].second;                
+				int j = indices[tid].first;
+				int k = indices[tid].second;                
 
 				//#pragma omp critical
 				//{
@@ -1749,6 +1772,7 @@ int gsl_linalg_SV_decomp_jacobi_atomic_gsl (gsl_matrix * A, gsl_matrix * Q, gsl_
 
 //cout << j << "," << k << "," << a << "," << b << "," << p << "," << q << "," << cosine << "," << sine << "," << v << "," << abserr_a << "," << abserr_b << "," << sorted << "," << orthog << "," << noisya << "," << noisyb << endl;
 
+/*
 				if (sorted && (orthog || noisya || noisyb)){
 #pragma omp critical
 					{
@@ -1759,7 +1783,7 @@ int gsl_linalg_SV_decomp_jacobi_atomic_gsl (gsl_matrix * A, gsl_matrix * Q, gsl_
 					//k = indices[idx].second;   
 				}
 
-
+*/
 				if (v == 0 || !sorted)
 				{
 					cosine = 0.0;
@@ -1878,8 +1902,7 @@ int gsl_linalg_SV_decomp_jacobi_atomic_gsl (gsl_matrix * A, gsl_matrix * Q, gsl_
 		if (count > 0)
 		{
 
-			GSL_ERROR ("Jacobi iterations did not reach desired tolerance",
-					GSL_ETOL);
+		//	GSL_ERROR ("Jacobi iterations did not reach desired tolerance",	GSL_ETOL);
 		}
 
 		return GSL_SUCCESS;
@@ -2756,7 +2779,8 @@ int main(int argc, char **argv){
 	gsl_linalg_SV_decomp_jacobi(A, V, S);
 	end = omp_get_wtime();
 	cout << "time taken by gsl_linalg_SV_decomp_jacobi (sequential) = " << end-start << endl;
-	/*gsl_matrix* S1 = gsl_matrix_alloc(S->size, S->size);
+	/*
+	gsl_matrix* S1 = gsl_matrix_alloc(S->size, S->size);
 	gsl_matrix_set_identity(S1);
 	for(int i=0; i< S1->size1; i++){
 		gsl_matrix_set(S1,i,i,gsl_vector_get(S,i));
@@ -2772,21 +2796,16 @@ int main(int argc, char **argv){
 	double norm2 = 0.0;
 	for(int i=0; i< Acap2->size1; i++){
 		for(int j=0; j< Acap2->size2; j++){
-			norm2 = pow(temp.M[i][j]-gsl_matrix_get(Acap2,i,j),2);
+			norm2 += pow(temp.M[i][j]-gsl_matrix_get(Acap2,i,j),2);
 		}
 	}
 	cout<<"norm diff == "<<sqrt(norm2)<<endl;	
-	/*
+	
 	for(int i=0; i< S->size; i++){
 		cout<<gsl_vector_get(S,i)<<endl;
 	}*/
-	
-	for(int i=0; i<A->size1; i++){
-		for(int j=0; j< A->size2; j++){
-			gsl_matrix_set(A,i,j,temp.M[i][j]);
-		}
-	}
 
+	//gsl_matrix_memcpy(R,A);
 	start = omp_get_wtime();
 	//sequentialAlgo1(temp, max_iter, num_threads, side_len, seq);
 	V = gsl_matrix_alloc(A->size2, A->size2); S = gsl_vector_alloc(A->size2);
@@ -2815,7 +2834,7 @@ int main(int argc, char **argv){
 	double norm2 = 0.0;
 	for(int i=0; i< Acap2->size1; i++){
 		for(int j=0; j< Acap2->size2; j++){
-			norm2 = pow(temp.M[i][j]-gsl_matrix_get(Acap2,i,j),2);
+			norm2 += pow(temp.M[i][j]-gsl_matrix_get(Acap2,i,j),2);
 		}
 	}
 	cout<<"norm diff == "<<sqrt(norm2)<<endl;
