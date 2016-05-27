@@ -6,11 +6,11 @@ CXXFLAGS=-Wall -O0 -g -fopenmp -pthread -std=c++11 -Wl,--no-as-needed
 LDFLAGS=-fopenmp -pthread -std=c++11 -Wl,--no-as-needed
 LDLIBS=-lpthread -lgsl -lblas
 
-SRCS=jacobi.cpp
+SRCS=jacobi.cpp jacobi_async.cpp jacobi_gsl.cpp
 
 .PHONY: all clean dist-clean
 
-all: jacobi
+all: jacobi jmos
 
 jacobi.o: jacobi.cpp $(SRCS)
 	$(CXX) $(CXXFLAGS) -c $<
@@ -18,8 +18,14 @@ jacobi.o: jacobi.cpp $(SRCS)
 jacobi: jacobi.o
 	$(CXX) $(LDFLAGS) -o $@ $^ $(LDLIBS) 
 
+jmos.o: jacobi_matrix_one_sided.cpp $(SRCS)
+	$(CXX) $(CXXFLAGS) -o $@ -c $<
+
+jmos: jmos.o
+	$(CXX) $(LDFLAGS) -o $@ $^ $(LDLIBS) 
+
 clean:
-	$(RM) jacobi.o
+	$(RM) jacobi.o jmos.o
 
 dist-clean: clean
-	$(RM) jacobi 
+	$(RM) jacobi jmos
