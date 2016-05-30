@@ -1,29 +1,24 @@
-int gsl_linalg_SV_decomp_jacobi_async (gsl_matrix * A, gsl_matrix * Q, gsl_vector * S, ofstream &log)
-{
-  if (A->size1 < A->size2)
-  {
-    /* FIXME: only implemented  M>=N case so far */
+#ifndef __JACOBI_GSL_H_
+#define __JACOBI_GSL_H_
 
-    GSL_ERROR ("svd of MxN matrix, M<N, is not implemented", GSL_EUNIMPL);
+#include "jacobi_svd.hpp"
+
+class JacobiGSL : public SVDecomposer<JacobiGSL> {
+  private:
+
+  public:
+
+  JacobiGSL(gsl_matrix *M, Params &params):
+    SVDecomposer("JacobiGSL", M, params) {
+    }
+  ~JacobiGSL() {
   }
-  else if (Q->size1 != A->size2)
-  {
-    GSL_ERROR ("square matrix Q must match second dimension of matrix A",
-        GSL_EBADLEN);
-  }
-  else if (Q->size1 != Q->size2)
-  {
-    GSL_ERROR ("matrix Q must be square", GSL_ENOTSQR);
-  }
-  else if (S->size != A->size2)
-  {
-    GSL_ERROR ("length of vector S must match second dimension of matrix A",
-        GSL_EBADLEN);
-  }
-  else
-  {
+
+  int decompose(ofstream &log) {
+
     const size_t M = A->size1;
     const size_t N = A->size2;
+    size_t i, j;
 
     /* Initialize the rotation counter and the sweep counter. */
     int count = 1;
@@ -41,7 +36,7 @@ int gsl_linalg_SV_decomp_jacobi_async (gsl_matrix * A, gsl_matrix * Q, gsl_vecto
     /* Store the column error estimates in S, for use during the
        orthogonalization */
 
-    for (size_t j = 0; j < N; j++)
+    for (j = 0; j < N; j++)
     {
       gsl_vector_view cj = gsl_matrix_column (A, j);
       double sj = gsl_blas_dnrm2 (&cj.vector);
@@ -54,7 +49,8 @@ int gsl_linalg_SV_decomp_jacobi_async (gsl_matrix * A, gsl_matrix * Q, gsl_vecto
         indices.push_back(make_pair(j,k));
       }
     }
-    size_t num_indices = indices.size();
+	  size_t update_count = 0;
+
 
     /* Orthogonalize A by plane rotations. */
 
@@ -63,11 +59,10 @@ int gsl_linalg_SV_decomp_jacobi_async (gsl_matrix * A, gsl_matrix * Q, gsl_vecto
       /* Initialize rotation counter. */
       count = N * (N - 1) / 2;
 
-#pragma omp parallel for
-      for (size_t idx = 0; idx<num_indices; ++idx) 
+      for (auto &idx : indices) 
       {
-        size_t j = indices[idx].first;
-        size_t k = indices[idx].second;
+        size_t j = idx.first;
+        size_t k = idx.second;
 
         double a = 0.0;
         double b = 0.0;
@@ -102,7 +97,6 @@ int gsl_linalg_SV_decomp_jacobi_async (gsl_matrix * A, gsl_matrix * Q, gsl_vecto
 
         if (sorted && (orthog || noisya || noisyb))
         {
-#pragma omp atomic
           count--;
           continue;
         }
@@ -120,44 +114,46 @@ int gsl_linalg_SV_decomp_jacobi_async (gsl_matrix * A, gsl_matrix * Q, gsl_vecto
         }
 
         /* apply rotation to A */
-        for (size_t i = 0; i < M; i++)
+        for (i = 0; i < M; i++)
         {
           const double Aik = gsl_matrix_get (A, i, k);
           const double Aij = gsl_matrix_get (A, i, j);
-          gsl_matrix_update (A, i, j, Aij * (cosine - 1) + Aik * sine);
-          gsl_matrix_update (A, i, k, -Aij * sine + Aik * (cosine-1));
+          gsl_matrix_set (A, i, j, Aij * cosine + Aik * sine);
+          gsl_matrix_set (A, i, k, -Aij * sine + Aik * cosine);
+          //log << gsl_matrix_get (A, i, j) << "\t" << gsl_matrix_get (A, i, k) << endl;
         }
 
-        gsl_vector_update(S, j, (fabs(cosine)-1) * abserr_a + fabs(sine) * abserr_b);
-        gsl_vector_update(S, k, fabs(sine) * abserr_a + (fabs(cosine)-1) * abserr_b);
+        gsl_vector_set(S, j, fabs(cosine) * abserr_a + fabs(sine) * abserr_b);
+        gsl_vector_set(S, k, fabs(sine) * abserr_a + fabs(cosine) * abserr_b);
 
         /* apply rotation to Q */
-        for (size_t i = 0; i < N; i++)
+        for (i = 0; i < N; i++)
         {
           const double Qij = gsl_matrix_get (Q, i, j);
           const double Qik = gsl_matrix_get (Q, i, k);
-          gsl_matrix_update (Q, i, j, Qij * (cosine - 1) + Qik * sine);
-          gsl_matrix_update (Q, i, k, -Qij * sine + Qik * (cosine-1));
-          //gsl_matrix_set (Q, i, j, Qij * cosine + Qik * sine);
-          //gsl_matrix_set (Q, i, k, -Qij * sine + Qik * cosine);
+          gsl_matrix_set (Q, i, j, Qij * cosine + Qik * sine);
+          gsl_matrix_set (Q, i, k, -Qij * sine + Qik * cosine);
         }
       }
+
+        update_count += (N*(N-1)/2 - count); 
 
       /* Sweep completed. */
       sweep++;
 
-      double total_inner_product = 0.0, p = 0.0;
-      for(size_t j=0; j < N-1; j++){
-        gsl_vector_view cj = gsl_matrix_column (A, j);
-        for(size_t k=j+1; k < N; k++){
-          gsl_vector_view ck = gsl_matrix_column (A, k);
-          gsl_blas_ddot (&cj.vector, &ck.vector, &p);
-          total_inner_product += p*p;
-//log << "j=" << j << "\tk=" << k << "\tp=" << p << "\t" << total_inner_product << endl;
-        }
-      }
-      log << sweep << "\t" << total_inner_product*2/(N*(N-1)) << endl;
+//      double total_inner_product = 0.0, p = 0.0;
+//      for(size_t j=0; j < N-1; j++){
+//        gsl_vector_view cj = gsl_matrix_column (A, j);
+//        for(size_t k=j+1; k < N; k++){
+//          gsl_vector_view ck = gsl_matrix_column (A, k);
+//          gsl_blas_ddot (&cj.vector, &ck.vector, &p);
+//          total_inner_product += p*p;
+//          //log << "j=" << j << "\tk=" << k << "\tp=" << p << "\t" << total_inner_product << endl;
+//        }
+//      }
+//      log << sweep << "\t" << total_inner_product*2/(N*(N-1)) << ", tol=" << tolerance <<  endl;
     }
+cout << "update count = " << update_count << endl;
 
     /* 
      * Orthogonalization complete. Compute singular values.
@@ -166,7 +162,7 @@ int gsl_linalg_SV_decomp_jacobi_async (gsl_matrix * A, gsl_matrix * Q, gsl_vecto
     {
       double prev_norm = -1.0;
 
-      for (size_t j = 0; j < N; j++)
+      for (j = 0; j < N; j++)
       {
         gsl_vector_view column = gsl_matrix_column (A, j);
         double norm = gsl_blas_dnrm2 (&column.vector);
@@ -198,20 +194,27 @@ int gsl_linalg_SV_decomp_jacobi_async (gsl_matrix * A, gsl_matrix * Q, gsl_vecto
       /* reached sweep limit */
       GSL_ERROR ("Jacobi iterations did not reach desired tolerance",
           GSL_ETOL);
+      return GSL_FAILURE;
     }
 
-      double total_inner_product = 0.0, p = 0.0;
-      for(size_t j=0; j < N-1; j++){
-        gsl_vector_view cj = gsl_matrix_column (A, j);
-        for(size_t k=j+1; k < N; k++){
-          gsl_vector_view ck = gsl_matrix_column (A, k);
-          p = 0.0;
-          gsl_blas_ddot (&cj.vector, &ck.vector, &p);
-          total_inner_product += p*p;
-log << "j=" << j << "\tk=" << k << "\tp=" << p << "\t" << total_inner_product << endl;
-        }
-      }
+//    double total_inner_product = 0.0, p = 0.0;
+//    for(size_t j=0; j < N-1; j++){
+//      gsl_vector_view cj = gsl_matrix_column (A, j);
+//      for(size_t k=j+1; k < N; k++){
+//        gsl_vector_view ck = gsl_matrix_column (A, k);
+//        p = 0.0;
+//        gsl_blas_ddot (&cj.vector, &ck.vector, &p);
+//        total_inner_product += p*p;
+//        log << "j=" << j << "\tk=" << k << "\tp=" << p << "\t" << total_inner_product << endl;
+//      }
+//    }
+    for (size_t i=0; i<S->size; ++i) {
+      log << gsl_vector_get(S, i) << endl;
+    }
     return GSL_SUCCESS;
   }
-}
+};
+
+
+#endif // __JACOBI_GSL_H_
 

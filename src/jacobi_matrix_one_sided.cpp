@@ -57,8 +57,8 @@ INLINE_DECL void gsl_vector_update (gsl_vector * v, const size_t i, double x)
   v->data[i * v->stride] += x;
 }
   
-#include "jacobi_gsl.cpp"
-#include "jacobi_async.cpp"
+//#include "jacobi_gsl.cpp"
+//#include "jacobi_async.cpp"
 
 int main(int argc, char **argv){
 
@@ -82,7 +82,7 @@ int main(int argc, char **argv){
   ofstream seq("sequential.dat");
   gsl_matrix_memcpy(B, A);
   start = omp_get_wtime();	
-  gsl_linalg_SV_decomp_jacobi(B, V, S, seq);
+//  gsl_linalg_SV_decomp_jacobi(B, V, S, seq);
   end = omp_get_wtime();
   cout << "time taken by sequential = " << end-start << endl;
   print_gsl_vector(S);
@@ -91,7 +91,7 @@ int main(int argc, char **argv){
   ofstream par("parallel.dat");
   gsl_matrix_memcpy(B, A);
   start = omp_get_wtime();	
-  gsl_linalg_SV_decomp_jacobi_async(B, V, S, par);
+//  gsl_linalg_SV_decomp_jacobi_async(B, V, S, par);
   print_gsl_vector(S);
   end = omp_get_wtime();
   cout << "time taken by parallel = " << end-start << endl;

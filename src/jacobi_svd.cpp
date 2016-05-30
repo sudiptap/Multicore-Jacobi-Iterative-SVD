@@ -1,6 +1,7 @@
 ﻿#include "jacobi_svd.hpp"
 #include "jacobi_gsl.hpp"
 #include "jacobi_async.hpp"
+#include "jacobi_async_delayed.hpp"
 #include <getopt.h>
 
 void usage(const char *argv) {
@@ -37,6 +38,10 @@ int main(int argc, char **argv) {
     usage(argv[0]);
   } 
 
+  if (!versions.size()) {
+    usage(argv[0]);
+  } 
+
   gsl_matrix* A = gsl_matrix_alloc(params.m, params.n); 
   for(size_t i=0; i < A->size1; i++){
     for(size_t j=0; j < A->size2; j++){
@@ -44,12 +49,16 @@ int main(int argc, char **argv) {
     }
   }
   for (auto &version: versions) {
+    cout << "################## Version " << version << " ######################" << endl;
     if (version == "1") {
       JacobiGSL jacobi(A, params);
-      jacobi.decomposeWriteOutput();
+      jacobi.decomposeWriteOutput(A);
     } else if (version == "2") {
       JacobiAsync jacobi(A, params);
-      jacobi.decomposeWriteOutput();
+      jacobi.decomposeWriteOutput(A);
+    } else if (version == "3") {
+      JacobiAsyncDelayed jacobi(A, params);
+      jacobi.decomposeWriteOutput(A);
     } else {
       cout << "Unknown version: " << version << endl;
       exit(-1);

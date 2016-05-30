@@ -1,21 +1,21 @@
 #CC=gcc
 CXX=g++
 RM=rm -f
-CXXFLAGS=-Wall -O0 -g -fopenmp -pthread -std=c++11 -Wl,--no-as-needed
-#CXXFLAGS=-Wall -O3 -fopenmp -pthread -lpthread -std=c++11 -Wl,--no-as-needed
+#CXXFLAGS=-Wall -O0 -g -fopenmp -pthread -std=c++11 -Wl,--no-as-needed
+CXXFLAGS=-Wall -O3 -fopenmp -pthread -lpthread -std=c++11 -Wl,--no-as-needed
 LDFLAGS=-fopenmp -pthread -std=c++11 -Wl,--no-as-needed
 LDLIBS=-lpthread -lgsl -lblas
 
-SRCS=jacobi.cpp jacobi_async.cpp jacobi_gsl.cpp
+SRCS=jacobi_svd.cpp jacobi_async.hpp jacobi_gsl.hpp jacobi_async_delayed.hpp
 
 .PHONY: all clean dist-clean
 
 all: jacobi jmos
 
-jacobi.o: jacobi.cpp $(SRCS)
+jacobi_svd.o: jacobi_svd.cpp $(SRCS)
 	$(CXX) $(CXXFLAGS) -c $<
 
-jacobi: jacobi.o
+jacobi: jacobi_svd.o
 	$(CXX) $(LDFLAGS) -o $@ $^ $(LDLIBS) 
 
 jmos.o: jacobi_matrix_one_sided.cpp $(SRCS)
@@ -25,7 +25,7 @@ jmos: jmos.o
 	$(CXX) $(LDFLAGS) -o $@ $^ $(LDLIBS) 
 
 clean:
-	$(RM) jacobi.o jmos.o
+	$(RM) jacobi_svd.o jmos.o
 
 dist-clean: clean
 	$(RM) jacobi jmos
