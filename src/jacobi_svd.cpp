@@ -2,6 +2,7 @@
 #include "jacobi_gsl.hpp"
 #include "jacobi_async.hpp"
 #include "jacobi_async_delayed.hpp"
+#include "jacobi_independent.hpp"
 #include <getopt.h>
 
 void usage(const char *argv) {
@@ -58,6 +59,9 @@ int main(int argc, char **argv) {
       jacobi.decomposeWriteOutput(A);
     } else if (version == "3") {
       JacobiAsyncDelayed jacobi(A, params);
+      jacobi.decomposeWriteOutput(A);
+    } else if (version == "4") {
+      JacobiIndependent jacobi(A, params);
       jacobi.decomposeWriteOutput(A);
     } else {
       cout << "Unknown version: " << version << endl;
