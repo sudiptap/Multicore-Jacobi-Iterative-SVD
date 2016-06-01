@@ -3,6 +3,8 @@
 #include "jacobi_async.hpp"
 #include "jacobi_async_delayed.hpp"
 #include "jacobi_independent.hpp"
+#include "jacobi_gsl_random_pair.hpp"
+#include "jacobi_gsl_random_permutation.hpp"
 #include <getopt.h>
 
 void usage(const char *argv) {
@@ -62,6 +64,12 @@ int main(int argc, char **argv) {
       jacobi.decomposeWriteOutput(A);
     } else if (version == "4") {
       JacobiIndependent jacobi(A, params);
+      jacobi.decomposeWriteOutput(A);
+    } else if (version == "5") {
+      JacobiGSLRandomPair jacobi(A, params);
+      jacobi.decomposeWriteOutput(A);
+    }else if (version == "6") {
+      JacobiGSLRandomPermutation jacobi(A, params);
       jacobi.decomposeWriteOutput(A);
     } else {
       cout << "Unknown version: " << version << endl;
