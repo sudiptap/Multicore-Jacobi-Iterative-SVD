@@ -73,13 +73,14 @@ class JacobiGSLRandomPair : public SVDecomposer<JacobiGSLRandomPair> {
 
     /* Orthogonalize A by plane rotations. */
 
-    while (!all_orthogonalized(A, tolerance))
+    while (count > 0 && sweep <= sweepmax)
     {
       /* Initialize rotation counter. */
-      //count = N * (N - 1) / 2;
+      count = N * (N - 1) / 2;
 
       //for (auto &idx : indices) 
-      //{
+      for (size_t idx=0; idx< count; ++idx)
+      {
         //size_t j = idx.first;
         //size_t k = idx.second;
 	size_t j = rand() % (A->size1-1); //pairs[pidx].first;
@@ -122,6 +123,8 @@ class JacobiGSLRandomPair : public SVDecomposer<JacobiGSLRandomPair> {
           continue;
         }
 
+        update_count++;
+
         /* calculate rotation angles */
         if (v == 0 || !sorted)
         {
@@ -155,10 +158,8 @@ class JacobiGSLRandomPair : public SVDecomposer<JacobiGSLRandomPair> {
           gsl_matrix_set (Q, i, j, Qij * cosine + Qik * sine);
           gsl_matrix_set (Q, i, k, -Qij * sine + Qik * cosine);
         }
-      //}
+      }
 
-        //update_count += (N*(N-1)/2 - count); 
-	update_count ++; 
       /* Sweep completed. */
       sweep++;
 

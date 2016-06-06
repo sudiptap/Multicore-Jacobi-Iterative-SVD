@@ -101,6 +101,8 @@ class JacobiGSL : public SVDecomposer<JacobiGSL> {
           continue;
         }
 
+        update_count++;
+
         /* calculate rotation angles */
         if (v == 0 || !sorted)
         {
