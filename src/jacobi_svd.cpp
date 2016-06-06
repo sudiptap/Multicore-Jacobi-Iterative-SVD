@@ -6,6 +6,7 @@
 #include "jacobi_gsl_random_pair.hpp"
 #include "jacobi_gsl_random_permutation.hpp"
 #include "jacobi_gsl_optimal_pair.hpp"
+#include "jacobi_gsl_best_pair_first.hpp"
 #include <getopt.h>
 
 void usage(const char *argv) {
@@ -96,7 +97,10 @@ int main(int argc, char **argv) {
     } else if (version == "7") {
       JacobiGSLOptimalPair jacobi(A, params);
       jacobi.decomposeWriteOutput(A);
-    } else {
+    } else if (version == "8") {
+      JacobiGSLBestPairFirst jacobi(A, params);
+      jacobi.decomposeWriteOutput(A);
+    }else {
       cout << "Unknown version: " << version << endl;
       exit(-1);
     }

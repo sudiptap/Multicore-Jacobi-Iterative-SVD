@@ -4,7 +4,33 @@
 
 #include "jacobi_svd.hpp"
 
-  bool sort_desc (const pair< pair<size_t, size_t>, double> &i, const pair< pair<size_t, size_t>, double> &j) { return (i.second>j.second); }
+typedef tuple<size_t, size_t, double> pivot;
+
+bool sort_desc (const pivot &i, const pivot &j)
+{
+   return get<2>(i) > get<2>(j);
+}
+
+void populate_indices(vector<pivot> &indices, gsl_matrix *A, gsl_vector *S, size_t N) 
+{
+    for(size_t j=0; j < N-1; j++){
+      for(size_t k=j+1; k < N; k++){
+		double dotp, a, b, abserr_a, abserr_b;
+		gsl_vector_view cj = gsl_matrix_column (A, j);
+        	gsl_vector_view ck = gsl_matrix_column (A, k);
+		gsl_blas_ddot (&cj.vector, &ck.vector, &dotp);
+		a = gsl_blas_dnrm2 (&cj.vector);
+		b = gsl_blas_dnrm2 (&ck.vector);
+		abserr_a = gsl_vector_get(S,j);
+		abserr_b = gsl_vector_get(S,k);
+  bool noisya = (a < abserr_a);
+  bool noisyb = (b < abserr_b);
+                if (!(noisya || noisyb)) {
+  	        	indices.push_back(make_tuple(j,k,fabs(dotp)));
+                }
+      }
+    }
+}
 
 class JacobiGSLOptimalPair : public SVDecomposer<JacobiGSLOptimalPair> {
   private:
@@ -18,10 +44,10 @@ class JacobiGSLOptimalPair : public SVDecomposer<JacobiGSLOptimalPair> {
   }
   
   bool all_orthogonalized(gsl_matrix* A, double tolerance){
-    for(int j=0; j< A->size1; j++){
+    for(size_t j=0; j< A->size1; j++){
       gsl_vector_view cj = gsl_matrix_column (A, j);  
       double a = gsl_blas_dnrm2 (&cj.vector);     	
-      for(int k=j+1; k< A->size2; k++){
+      for(size_t k=j+1; k< A->size2; k++){
         double p = 0.0;
 		gsl_vector_view ck = gsl_matrix_column (A, k);
         gsl_blas_ddot (&cj.vector, &ck.vector, &p);
@@ -66,22 +92,8 @@ class JacobiGSLOptimalPair : public SVDecomposer<JacobiGSLOptimalPair> {
       gsl_vector_set(S, j, GSL_DBL_EPSILON * sj);
     }
 
-    vector<pair<pair<size_t, size_t>, double> > indices;
-    for(size_t j=0; j < N-1; j++){
-      for(size_t k=j+1; k < N; k++){
-		double dotp;
-		gsl_vector_view cj = gsl_matrix_column (A, j);
-        gsl_vector_view ck = gsl_matrix_column (A, k);
-		gsl_blas_ddot (&cj.vector, &ck.vector, &dotp);
-        indices.push_back(make_pair(make_pair(j,k),dotp));
-      }
-    }
-    assert(indices.size() == N*(N-1)/2);
-	/* sort the pairs in descending order of dot product */
-	//std::sort(indices.begin(), indices.end(), [](pair< pair<size_t, size_t>, double> i, pair< pair<size_t, size_t>, double> j) { return (i.second>j.second); });
-	//std::sort(indices.begin(), indices.end(), sort_desc);
-	size_t update_count = 0;
-
+    size_t update_count = 0;
+    double lowest_a = DBL_MAX;
 
     /* Orthogonalize A by plane rotations. */
     while (count > 0 && sweep <= sweepmax)
@@ -90,11 +102,26 @@ class JacobiGSLOptimalPair : public SVDecomposer<JacobiGSLOptimalPair> {
       count = N * (N - 1) / 2;
       //std::vector<pair<size_t, size_t> > shuffled_indices;
       
-	
+        vector<pivot> indices;
+        populate_indices(indices, A, S, N);
+	std::sort(indices.begin(), indices.end(), sort_desc);
+	   size_t limit = 0;
+        size_t indsiz = indices.size();
+        cout << get<2>(indices[0]) << "," << get<2>(indices[indsiz/4]) << "," << get<2>(indices[indsiz/2]) << "," << get<2>(indices[3*indsiz/4]) << "," << get<2>(indices[indsiz-1]) << endl;
+      if (fabs(lowest_a - get<2>(indices[0])) > 1e-10) {
+         lowest_a = get<2>(indices[0]);
+      } else {
+         break;
+      }
       for (auto &idx : indices) 
+	  //for(int i=0; i< indices.size(); i++)
       {
-        size_t j = idx.first.first;
-        size_t k = idx.first.second;
+	    if(limit>=N * (N - 1) /8){
+				break;
+		}
+	limit++;
+        size_t j = get<0>(idx);
+        size_t k = get<1>(idx);
 	
 	
 
@@ -135,6 +162,8 @@ class JacobiGSLOptimalPair : public SVDecomposer<JacobiGSLOptimalPair> {
           continue;
         }
 	
+        //cout << "updating ..." << endl;
+	
         /* calculate rotation angles */
         if (v == 0 || !sorted)
         {
@@ -174,7 +203,7 @@ class JacobiGSLOptimalPair : public SVDecomposer<JacobiGSLOptimalPair> {
        // update_count += (N*(N-1)/2 - count); 
 	
       /* Sweep completed. */
-      sweep++;
+      sweep++;// cout<<"sweep = "<<sweep<<endl;
 
 //      double total_inner_product = 0.0, p = 0.0;
 //      for(size_t j=0; j < N-1; j++){
@@ -227,9 +256,9 @@ cout << "update count = " << update_count << endl;
     if (count > 0)
     {
       /* reached sweep limit */
-      GSL_ERROR ("Jacobi iterations did not reach desired tolerance",
-          GSL_ETOL);
-      return GSL_FAILURE;
+      //GSL_ERROR ("Jacobi iterations did not reach desired tolerance",
+          //GSL_ETOL);
+      //return GSL_FAILURE;
     }
 
     double total_inner_product = 0.0, p = 0.0;

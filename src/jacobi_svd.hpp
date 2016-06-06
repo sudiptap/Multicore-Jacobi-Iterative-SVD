@@ -27,6 +27,7 @@
 #include <cfloat>
 #include <cassert>
 #include <omp.h>
+#include <tuple>
 
 using namespace std;
 

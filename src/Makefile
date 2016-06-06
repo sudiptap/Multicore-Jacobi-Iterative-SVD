@@ -6,7 +6,7 @@ CXXFLAGS=-Wall -O3 -fopenmp -pthread -lpthread -std=c++11 -Wl,--no-as-needed
 LDFLAGS=-fopenmp -pthread -std=c++11 -Wl,--no-as-needed
 LDLIBS=-lpthread -lgsl -lblas
 
-SRCS=jacobi_svd.cpp jacobi_async.hpp jacobi_gsl.hpp jacobi_async_delayed.hpp jacobi_gsl_random_pair.hpp jacobi_gsl_random_permutation.hpp jacobi_gsl_optimal_pair.hpp
+SRCS=jacobi_svd.cpp jacobi_async.hpp jacobi_gsl.hpp jacobi_async_delayed.hpp jacobi_gsl_random_pair.hpp jacobi_gsl_random_permutation.hpp jacobi_gsl_optimal_pair.hpp jacobi_gsl_best_pair_first.hpp
 
 .PHONY: all clean dist-clean
 
