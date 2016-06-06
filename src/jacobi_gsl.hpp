@@ -49,8 +49,6 @@ class JacobiGSL : public SVDecomposer<JacobiGSL> {
         indices.push_back(make_pair(j,k));
       }
     }
-	  size_t update_count = 0;
-
 
     /* Orthogonalize A by plane rotations. */
 
@@ -137,8 +135,6 @@ class JacobiGSL : public SVDecomposer<JacobiGSL> {
           gsl_matrix_set (Q, i, k, -Qij * sine + Qik * cosine);
         }
       }
-
-        //update_count += (N*(N-1)/2 - count); 
 
       /* Sweep completed. */
       sweep++;

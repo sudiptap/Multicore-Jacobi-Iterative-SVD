@@ -27,7 +27,7 @@ void populate_indices(vector<pivot> &indices, gsl_matrix *A, gsl_vector *S, size
       abserr_b = gsl_vector_get(S,k);
       bool noisyb = (b < abserr_b);
       if (!noisyb) {
-        indices.push_back(make_tuple(j,k,fabs(dotp)));
+        indices[j*(j-1)/2+k] = make_tuple(j,k,fabs(2*dotp)/GSL_COERCE_DBL(a*b));
       }
     }
   }
@@ -45,6 +45,7 @@ class JacobiGSLOptimalPair : public SVDecomposer<JacobiGSLOptimalPair> {
     }
 
     bool all_orthogonalized(gsl_matrix* A, double tolerance){
+      size_t num_error = 0;
       for(size_t j=0; j< A->size1; j++){
         gsl_vector_view cj = gsl_matrix_column (A, j);  
         double a = gsl_blas_dnrm2 (&cj.vector);     	
@@ -56,10 +57,12 @@ class JacobiGSLOptimalPair : public SVDecomposer<JacobiGSLOptimalPair> {
           double b = gsl_blas_dnrm2 (&ck.vector);
           double orthog = (fabs (p) <= tolerance * GSL_COERCE_DBL(a * b));
           if(!orthog){
-            return false;
+	    cout<<"j = "<< j << "," << "k = "<< k << ": fabs(p) = " << fabs(p) << " , tolerance * GSL_COERCE_DBL(a * b) = " << tolerance * GSL_COERCE_DBL(a * b) << endl;
+            num_error++;
           }   
         }
       }
+      cout << "num_error = " << num_error << endl;
       return true;
     }
 
@@ -93,8 +96,13 @@ class JacobiGSLOptimalPair : public SVDecomposer<JacobiGSLOptimalPair> {
         gsl_vector_set(S, j, GSL_DBL_EPSILON * sj);
       }
 
-      size_t update_count = 0;
       double lowest_a = DBL_MAX;
+      double sort_time = 0.0;
+
+      size_t pivot_count = N*(N-1)/2;
+      size_t pivot_used = pivot_count / 32;
+
+      vector<pivot> indices(pivot_count);
 
       /* Orthogonalize A by plane rotations. */
       while (count > 0 && sweep <= sweepmax)
@@ -103,28 +111,26 @@ class JacobiGSLOptimalPair : public SVDecomposer<JacobiGSLOptimalPair> {
         count = N * (N - 1) / 2;
         //std::vector<pair<size_t, size_t> > shuffled_indices;
 
-        vector<pivot> indices;
+        //double begin = omp_get_wtime();
         populate_indices(indices, A, S, M, N);
+	//double end = omp_get_wtime();
+      	//sort_time += end-begin;
+      
         std::sort(indices.begin(), indices.end(), sort_desc);
+      
         size_t limit = 0;
         size_t indsiz = indices.size();
-        cout << get<2>(indices[0]) << "," << get<2>(indices[indsiz/4]) << "," << get<2>(indices[indsiz/2]) << "," << get<2>(indices[3*indsiz/4]) << "," << get<2>(indices[indsiz-1]) << endl;
+        //cout << get<2>(indices[0]) << "," << get<2>(indices[indsiz/4]) << "," << get<2>(indices[indsiz/2]) << "," << get<2>(indices[3*indsiz/4]) << "," << get<2>(indices[indsiz-1]) << endl;
         if (fabs(lowest_a - get<2>(indices[0])) > 1e-10) {
           lowest_a = get<2>(indices[0]);
         } else {
           break;
         }
-        for (auto &idx : indices) 
-          //for(int i=0; i< indices.size(); i++)
+        //for (auto &idx : indices) 
+        for(size_t idx=0; idx< pivot_used; idx++)
         {
-          if(limit>=N * (N - 1) /32){
-            break;
-          }
-          limit++;
-          size_t j = get<0>(idx);
-          size_t k = get<1>(idx);
-
-
+          size_t j = get<0>(indices[idx]);
+          size_t k = get<1>(indices[idx]);
 
           double a = 0.0;
           double b = 0.0;
@@ -163,7 +169,7 @@ class JacobiGSLOptimalPair : public SVDecomposer<JacobiGSLOptimalPair> {
             continue;
           }
 
-        update_count++;
+          update_count++;
 
           /* calculate rotation angles */
           if (v == 0 || !sorted)
@@ -200,7 +206,6 @@ class JacobiGSLOptimalPair : public SVDecomposer<JacobiGSLOptimalPair> {
           }
         }
 
-        // update_count += (N*(N-1)/2 - count); 
 
         /* Sweep completed. */
         sweep++;// cout<<"sweep = "<<sweep<<endl;
@@ -218,11 +223,12 @@ class JacobiGSLOptimalPair : public SVDecomposer<JacobiGSLOptimalPair> {
         //      log << sweep << "\t" << total_inner_product*2/(N*(N-1)) << ", tol=" << tolerance <<  endl;
       }
       cout << "update count = " << update_count << endl;
+      cout << "sort time = " << sort_time << endl;
 
       /* 
        * Orthogonalization complete. Compute singular values.
        */
-
+      
       {
         double prev_norm = -1.0;
 
@@ -252,7 +258,9 @@ class JacobiGSLOptimalPair : public SVDecomposer<JacobiGSLOptimalPair> {
           }
         }
       }
-
+      
+      //cout<<all_orthogonalized(A, tolerance)<<endl;
+      //cout<<all_orthogonalized(Q, tolerance)<<endl;
       if (count > 0)
       {
         /* reached sweep limit */

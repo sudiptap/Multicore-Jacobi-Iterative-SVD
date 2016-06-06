@@ -56,6 +56,7 @@ class SVDecomposer {
     gsl_matrix* Q;
     gsl_vector* S;
     const gsl_matrix *Aorig;
+    size_t update_count;
 
   public:
 
@@ -82,6 +83,7 @@ class SVDecomposer {
       cout << "output = " << log_fname << endl;
       ofstream log;
       log.open(log_fname);
+      update_count = 0;
       double begin = omp_get_wtime();
       if (static_cast<DerivedSVDecomposer*>(this)->decompose(log) != GSL_SUCCESS) {
         exit(-1);
@@ -111,6 +113,7 @@ class SVDecomposer {
         }
       }
       cout << "Approximation error = " << norm2 << endl;
+      cout << "@@@@," << params.m << "," << params.n << "," << update_count << "," << elapsed << "," << norm2 << endl; 
     }
 };
 
