@@ -116,6 +116,7 @@ class JacobiGSL : public SVDecomposer<JacobiGSL> {
         }
 
         /* apply rotation to A */
+	update_count++;
         for (i = 0; i < M; i++)
         {
           const double Aik = gsl_matrix_get (A, i, k);
@@ -137,6 +138,8 @@ class JacobiGSL : public SVDecomposer<JacobiGSL> {
           gsl_matrix_set (Q, i, k, -Qij * sine + Qik * cosine);
         }
       }
+
+        //update_count += (N*(N-1)/2 - count); 
 
       /* Sweep completed. */
       sweep++;
@@ -204,8 +207,11 @@ cout << "update count = " << update_count << endl;
 //        gsl_vector_view ck = gsl_matrix_column (A, k);
 //        p = 0.0;
 //        gsl_blas_ddot (&cj.vector, &ck.vector, &p);
+//	if(p>tolerance){
+//	    log << "j=" << j << "\tk=" << k << "\tp=" << p << endl;
+//	}
 //        total_inner_product += p*p;
-//        log << "j=" << j << "\tk=" << k << "\tp=" << p << "\t" << total_inner_product << endl;
+//        //log << "j=" << j << "\tk=" << k << "\tp=" << p << "\t" << total_inner_product << endl;
 //      }
 //    }
     for (size_t i=0; i<S->size; ++i) {

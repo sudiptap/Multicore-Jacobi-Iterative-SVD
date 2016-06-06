@@ -25,6 +25,7 @@
 #include <iterator>
 #include <algorithm>
 #include <cfloat>
+#include <cassert>
 #include <omp.h>
 
 using namespace std;
@@ -101,8 +102,8 @@ class SVDecomposer {
       gsl_matrix* B = gsl_matrix_alloc(A->size1, T->size2); 
       gsl_blas_dgemm(CblasNoTrans, CblasNoTrans, 1.0, A, T, 0.0, B);
       double norm2 = 0.0;
-      for(int i=0; i< B->size1; i++){
-        for(int j=0; j< B->size2; j++){
+      for(size_t i=0; i< B->size1; i++){
+        for(size_t j=0; j< B->size2; j++){
           double Bij = gsl_matrix_get(B, i, j);
           double Mij = gsl_matrix_get(M, i, j);
           norm2 += (Mij - Bij) * (Mij - Bij);
