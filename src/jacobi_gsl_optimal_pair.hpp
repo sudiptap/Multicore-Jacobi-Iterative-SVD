@@ -116,7 +116,7 @@ class JacobiGSLOptimalPair : public SVDecomposer<JacobiGSLOptimalPair> {
       for (auto &idx : indices) 
 	  //for(int i=0; i< indices.size(); i++)
       {
-	    if(limit>=N * (N - 1) /8){
+	    if(limit>=N * (N - 1) /32){
 				break;
 		}
 	limit++;
