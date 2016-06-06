@@ -101,6 +101,8 @@ class JacobiGSL : public SVDecomposer<JacobiGSL> {
           continue;
         }
 
+        update_count++;
+
         /* calculate rotation angles */
         if (v == 0 || !sorted)
         {
@@ -135,8 +137,6 @@ class JacobiGSL : public SVDecomposer<JacobiGSL> {
           gsl_matrix_set (Q, i, k, -Qij * sine + Qik * cosine);
         }
       }
-
-        update_count += (N*(N-1)/2 - count); 
 
       /* Sweep completed. */
       sweep++;

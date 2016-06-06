@@ -10,7 +10,7 @@ class JacobiGSLRandomPermutation : public SVDecomposer<JacobiGSLRandomPermutatio
   public:
 
   JacobiGSLRandomPermutation(gsl_matrix *M, Params &params):
-    SVDecomposer("JacobiGSLRandomPair", M, params) {
+    SVDecomposer("JacobiGSLRandomPermutation", M, params) {
     }
   ~JacobiGSLRandomPermutation() {
   }
@@ -128,6 +128,8 @@ class JacobiGSLRandomPermutation : public SVDecomposer<JacobiGSLRandomPermutatio
           continue;
         }
 
+        update_count++;
+
         /* calculate rotation angles */
         if (v == 0 || !sorted)
         {
@@ -162,8 +164,6 @@ class JacobiGSLRandomPermutation : public SVDecomposer<JacobiGSLRandomPermutatio
           gsl_matrix_set (Q, i, k, -Qij * sine + Qik * cosine);
         }
       }
-
-        update_count += (N*(N-1)/2 - count); 
 	
       /* Sweep completed. */
       sweep++;
