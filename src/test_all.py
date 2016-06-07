@@ -25,11 +25,11 @@ pgf_with_pdflatex = {
 mpl.rcParams.update(pgf_with_pdflatex)
 import matplotlib.pyplot as plt
 
-
-num_run = 1
+num_run = 4
 results = {}
 
-nvalues = [100]
+nvalues = [100, 200, 300, 400] #, 1000, 1500, 2000]
+
 solvers = [1, 7]
 
 def generate_type4_matrix(m, n):
@@ -93,11 +93,9 @@ def plot(to_plot, yname, ylabel, xlabel):
     plt.grid(b=True, which='both', color='0.15')
     plots = []
     for [s, config] in to_plot:
-        print len(nvalues)
-        print len(results[s][yname])
         line, = plt.plot(nvalues, results[s][yname], label = config, linewidth=4, marker='o')
         plots.append(line)
-    #plt.legend(handles=plots, loc=1)
+    plt.legend(handles=plots, loc=2)
     plt.savefig(yname+".pdf")
 
 update_plot = []
