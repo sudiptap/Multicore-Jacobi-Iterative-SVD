@@ -3,7 +3,9 @@ import os
 import sys
 import time
 import numpy
+import math
 import subprocess as sp
+from scipy.linalg import hilbert
 
 import matplotlib as mpl
 mpl.use("pgf")
@@ -24,14 +26,47 @@ mpl.rcParams.update(pgf_with_pdflatex)
 import matplotlib.pyplot as plt
 
 
-num_run = 5
+num_run = 1
 results = {}
 
-nvalues = [100, 200, 300]
+nvalues = [100]
 solvers = [1, 7]
 
+def generate_type4_matrix(m, n):
+     x = numpy.zeros((m,n));
+     for i in range(m):
+         for j in range(n):
+             x[i][j]=random.uniform(-1,1)
+     numpy.savetxt('test_type4.out', x) 
+
+def generate_type3_matrix(m,n):
+    if m!=n:
+        print "error : m!=n"
+    else:
+        c = 0.2
+        s = math.sqrt(1 - math.pow(c,2))
+        d = numpy.zeros((m,m));
+        for i in range(m):
+            d[i][i]=math.pow(s,i-1)
+        r = numpy.zeros((m,m))
+        numpy.fill_diagonal(r,1)
+        for i in range(m):
+            for j in range(m):
+                if j>i:
+                    r[i][j]=(-c)
+        t = numpy.dot(d,r)
+        numpy.savetxt('test_type3.out',t)
+    
+def generate_type1_matrix(m,n):    
+    if m!=n:
+        print "Hilbert matrices are squared matrix"
+    else:
+        h = numpy.zeros((m,m))        
+        h = hilbert(m)
+        numpy.savetxt('test_type1.out',h)
 
 def run_and_average(n, s):
+    #generate_type4_matrix(3, 3)
     cmd = "./jacobi -m %d -n %d -s %d" % (n, n, s)
     print cmd
     timing = 0.0;
