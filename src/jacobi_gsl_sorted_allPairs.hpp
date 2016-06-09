@@ -1,21 +1,21 @@
-#ifndef __JACOBI_GSL_RANDOM_PERMUTATION_HPP
-#define __JACOBI_GSL_RANDOM_PERMUTATION_HPP
+#ifndef __JACOBI_GSL_SORTED_ALLPAIR_HPP
+#define __JACOBI_GSL_SORTED_ALLPAIR_HPP
 
 
 #include "jacobi_svd.hpp"
 
-class JacobiGSLRandomPermutation : public SVDecomposer<JacobiGSLRandomPermutation> {
+  bool sort_desc (const pair< pair<size_t, size_t>, double> &i, const pair< pair<size_t, size_t>, double> &j) { return (i.second>j.second); }
+
+class JacobiGSLSortedAllPairs : public SVDecomposer<JacobiGSLSortedAllPairs> {
   private:
 
   public:
 
-  JacobiGSLRandomPermutation(gsl_matrix *M, Params &params):
-    SVDecomposer("JacobiGSLRandomPermutation", M, params) {
+  JacobiGSLSortedAllPairs(gsl_matrix *M, Params &params):
+    SVDecomposer("JacobiGSLSortedAllPairs", M, params) {
     }
-  ~JacobiGSLRandomPermutation() {
+  ~JacobiGSLSortedAllPairs() {
   }
- 
-  //pair<size_t, size_t> myrandom (int i) { return std::rand()%i;}
 
   int decompose(ofstream &log) {
 
@@ -42,28 +42,47 @@ class JacobiGSLRandomPermutation : public SVDecomposer<JacobiGSLRandomPermutatio
       gsl_vector_set(S, j, GSL_DBL_EPSILON * sj);
     }
 
-    vector<pair<size_t, size_t> > indices;
+    vector<pair<pair<size_t, size_t>, double> > indices;
     for(size_t j=0; j < N-1; j++){
       for(size_t k=j+1; k < N; k++){
-        indices.push_back(make_pair(j,k));
+		double dotp;
+		gsl_vector_view cj = gsl_matrix_column (A, j);
+        	gsl_vector_view ck = gsl_matrix_column (A, k);
+		gsl_blas_ddot (&cj.vector, &ck.vector, &dotp);
+        	indices.push_back(make_pair(make_pair(j,k),dotp));
       }
     }
-	  size_t update_count = 0;
+    assert(indices.size() == N*(N-1)/2);
+	/* sort the pairs in descending order of dot product */
+	std::sort(indices.begin(), indices.end(), [](pair< pair<size_t, size_t>, double> i, pair< pair<size_t, size_t>, double> j) { return (i.second>j.second); });
+	//std::sort(indices.begin(), indices.end(), sort_desc);
+	size_t update_count = 0;
 
 
     /* Orthogonalize A by plane rotations. */
-    std::random_shuffle ( indices.begin(), indices.end());
     while (count > 0 && sweep <= sweepmax)
     {
       /* Initialize rotation counter. */
       count = N * (N - 1) / 2;
       //std::vector<pair<size_t, size_t> > shuffled_indices;
       
-
+        vector<pair<pair<size_t, size_t>, double> > indices;
+        for(size_t j=0; j < N-1; j++){
+          for(size_t k=j+1; k < N; k++){
+		double dotp;
+		gsl_vector_view cj = gsl_matrix_column (A, j);
+        	gsl_vector_view ck = gsl_matrix_column (A, k);
+		gsl_blas_ddot (&cj.vector, &ck.vector, &dotp);
+        	indices.push_back(make_pair(make_pair(j,k),dotp));
+          }
+        }	
+	std::sort(indices.begin(), indices.end(), [](pair< pair<size_t, size_t>, double> i, pair< pair<size_t, size_t>, double> j) { return (i.second<j.second); });
+	  
       for (auto &idx : indices) 
-      {
-        size_t j = idx.first;
-        size_t k = idx.second;
+	  //for(int i=0; i< indices.size(); i++)
+      {	    
+        size_t j = idx.first.first;
+        size_t k = idx.first.second;
 	
 	
 
@@ -95,17 +114,15 @@ class JacobiGSLRandomPermutation : public SVDecomposer<JacobiGSLRandomPermutatio
 
         sorted = (GSL_COERCE_DBL(a) >= GSL_COERCE_DBL(b));
         orthog = (fabs (p) <= tolerance * GSL_COERCE_DBL(a * b));
-        noisya = false; //(a < abserr_a);
-        noisyb = false; //(b < abserr_b);
+        noisya = (a < abserr_a);
+        noisyb = (b < abserr_b);
 
         if (sorted && (orthog || noisya || noisyb))
         {
           count--;
           continue;
         }
-
-        update_count++;
-
+	
         /* calculate rotation angles */
         if (v == 0 || !sorted)
         {
@@ -119,9 +136,7 @@ class JacobiGSLRandomPermutation : public SVDecomposer<JacobiGSLRandomPermutatio
         }
 
         /* apply rotation to A */
-
-        update_count++;
-
+	update_count++;
         for (i = 0; i < M; i++)
         {
           const double Aik = gsl_matrix_get (A, i, k);
@@ -143,8 +158,11 @@ class JacobiGSLRandomPermutation : public SVDecomposer<JacobiGSLRandomPermutatio
           gsl_matrix_set (Q, i, k, -Qij * sine + Qik * cosine);
         }
       }
+
+       // update_count += (N*(N-1)/2 - count); 
+	
       /* Sweep completed. */
-      sweep++;
+      sweep++; //cout<<"sweep = "<<sweep<<endl;
 
 //      double total_inner_product = 0.0, p = 0.0;
 //      for(size_t j=0; j < N-1; j++){
@@ -163,7 +181,6 @@ cout << "update count = " << update_count << endl;
     /* 
      * Orthogonalization complete. Compute singular values.
      */
-
     {
       double prev_norm = -1.0;
 
@@ -202,17 +219,20 @@ cout << "update count = " << update_count << endl;
       return GSL_FAILURE;
     }
 
-//    double total_inner_product = 0.0, p = 0.0;
-//    for(size_t j=0; j < N-1; j++){
-//      gsl_vector_view cj = gsl_matrix_column (A, j);
-//      for(size_t k=j+1; k < N; k++){
-//        gsl_vector_view ck = gsl_matrix_column (A, k);
-//        p = 0.0;
-//        gsl_blas_ddot (&cj.vector, &ck.vector, &p);
-//        total_inner_product += p*p;
-//        log << "j=" << j << "\tk=" << k << "\tp=" << p << "\t" << total_inner_product << endl;
-//      }
-//    }
+    double total_inner_product = 0.0, p = 0.0;
+    for(size_t j=0; j < N-1; j++){
+      gsl_vector_view cj = gsl_matrix_column (A, j);
+      for(size_t k=j+1; k < N; k++){
+        gsl_vector_view ck = gsl_matrix_column (A, k);
+        p = 0.0;
+        gsl_blas_ddot (&cj.vector, &ck.vector, &p);
+	if(fabs(p) > tolerance){
+        	 log << "j=" << j << "\tk=" << k << "\tp=" << p << endl;
+	} 
+        total_inner_product += p*p;
+        //log << "j=" << j << "\tk=" << k << "\tp=" << p << "\t" << total_inner_product << endl;
+      }
+    }
     for (size_t i=0; i<S->size; ++i) {
       log << gsl_vector_get(S, i) << endl;
     }
@@ -221,6 +241,6 @@ cout << "update count = " << update_count << endl;
 };
 
 
-#endif // __JACOBI_GSL_RANDOM_PERMUTATION_HPP
+#endif // __JACOBI_GSL_SORTED_ALLPAIR_HPP
 
 

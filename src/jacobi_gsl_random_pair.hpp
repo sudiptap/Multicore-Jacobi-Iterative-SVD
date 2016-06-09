@@ -13,38 +13,15 @@ class JacobiGSLRandomPair : public SVDecomposer<JacobiGSLRandomPair> {
     }
   ~JacobiGSLRandomPair() {
   }
-  
-  bool all_orthogonalized(gsl_matrix* A, double tolerance){
-    for(size_t j=0; j< A->size1; j++){
-      gsl_vector_view cj = gsl_matrix_column (A, j);  
-      double a = gsl_blas_dnrm2 (&cj.vector);     	
-      for(size_t k=j+1; k< A->size2; k++){
-        double p = 0.0;
-	gsl_vector_view ck = gsl_matrix_column (A, k);
-        gsl_blas_ddot (&cj.vector, &ck.vector, &p);
-        p *= 2.0 ;        
-        double b = gsl_blas_dnrm2 (&ck.vector);
-        double orthog = (fabs (p) <= tolerance * GSL_COERCE_DBL(a * b));
-        if(!orthog){
-          return false;
-        }   
-      }
-    }
-    return true;
-  }
-
+ 
   int decompose(ofstream &log) {
 
-    const size_t M = A->size1;
-    const size_t N = A->size2;
     size_t i, j;
 
     /* Initialize the rotation counter and the sweep counter. */
     size_t count = 1;
     int sweep = 0;
     int sweepmax = 5*N;
-
-    double tolerance = 10 * M * GSL_DBL_EPSILON;
 
     /* Always do at least 12 sweeps. */
     sweepmax = GSL_MAX (sweepmax, 12);

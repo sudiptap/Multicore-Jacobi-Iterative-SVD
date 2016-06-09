@@ -25,11 +25,11 @@ pgf_with_pdflatex = {
 mpl.rcParams.update(pgf_with_pdflatex)
 import matplotlib.pyplot as plt
 
-
 num_run = 4
 results = {}
 
 nvalues = [100, 200, 300, 400] #, 1000, 1500, 2000]
+
 solvers = [1, 7]
 
 def generate_type4_matrix(m, n):

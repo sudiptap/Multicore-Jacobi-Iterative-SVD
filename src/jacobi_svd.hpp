@@ -57,12 +57,15 @@ class SVDecomposer {
     gsl_vector* S;
     const gsl_matrix *Aorig;
     size_t update_count;
-
+    const size_t M;
+    const size_t N;
+    const double tolerance = 10 * M * GSL_DBL_EPSILON;
   public:
 
-    SVDecomposer(const string& _name, const gsl_matrix *M, Params &_params) : name(_name), params(_params), Aorig(M) {
-      A = gsl_matrix_alloc(M->size1, M->size2);
-      gsl_matrix_memcpy(A, M);
+    SVDecomposer(const string& _name, const gsl_matrix *inpA, Params &_params)
+      : name(_name), params(_params), Aorig(inpA), M(inpA->size1), N(inpA->size1), tolerance(10 * M * GSL_DBL_EPSILON) {
+      A = gsl_matrix_alloc(inpA->size1, inpA->size2);
+      gsl_matrix_memcpy(A, inpA);
       Q = gsl_matrix_alloc(A->size2, A->size2);
       S = gsl_vector_alloc(A->size2);
     }
@@ -77,7 +80,55 @@ class SVDecomposer {
       return GSL_FAILURE;
     }
 
-    void decomposeWriteOutput(const gsl_matrix *M) {
+    size_t all_orthogonalized(gsl_matrix* A, gsl_vector *S, double tolerance){
+      size_t num_error = 0;
+      double p, a, b, abserr_a, abserr_b;
+      for(size_t j=0; j< A->size1; j++){
+        gsl_vector_view cj = gsl_matrix_column (A, j);  
+        a = gsl_blas_dnrm2 (&cj.vector);
+        abserr_a = gsl_vector_get(S,j);
+        bool noisya = (a < abserr_a);
+        if (noisya) continue;
+        for(size_t k=j+1; k< A->size2; k++){
+          gsl_vector_view ck = gsl_matrix_column (A, k);
+          b = gsl_blas_dnrm2 (&ck.vector);
+          abserr_b = gsl_vector_get(S,k);
+          bool noisyb = (b < abserr_b);
+          if (noisyb) continue;
+          gsl_blas_ddot (&cj.vector, &ck.vector, &p);
+          p *= 2.0 ;        
+          bool orthog = (fabs (p) <= tolerance * GSL_COERCE_DBL(a * b));
+          if(!orthog){
+            cout<<"j = "<< j << "," << "k = "<< k << ": fabs(p) = " << fabs(p) << " , tolerance * GSL_COERCE_DBL(a * b) = " << tolerance * GSL_COERCE_DBL(a * b) << endl;
+            num_error++;
+          }   
+        }
+      }
+      return num_error;
+    }
+
+    size_t all_orthogonalized(gsl_matrix* A, double tolerance){
+      size_t num_error = 0;
+      double p, a, b;
+      for(size_t j=0; j< A->size1; j++){
+        gsl_vector_view cj = gsl_matrix_column (A, j);  
+        a = gsl_blas_dnrm2 (&cj.vector);
+        for(size_t k=j+1; k< A->size2; k++){
+          gsl_vector_view ck = gsl_matrix_column (A, k);
+          b = gsl_blas_dnrm2 (&ck.vector);
+          gsl_blas_ddot (&cj.vector, &ck.vector, &p);
+          p *= 2.0 ;        
+          bool orthog = (fabs (p) <= tolerance * GSL_COERCE_DBL(a * b));
+          if(!orthog){
+            cout<<"j = "<< j << "," << "k = "<< k << ": fabs(p) = " << fabs(p) << " , tolerance * GSL_COERCE_DBL(a * b) = " << tolerance * GSL_COERCE_DBL(a * b) << endl;
+            num_error++;
+          }   
+        }
+      }
+      return num_error;
+    }
+
+    void decomposeWriteOutput(const gsl_matrix *inpA) {
       string log_fname = name + ".dat";
       cout << "m      = " << params.m << ", n = " << params.n << endl;
       cout << "output = " << log_fname << endl;
@@ -108,11 +159,17 @@ class SVDecomposer {
       for(size_t i=0; i< B->size1; i++){
         for(size_t j=0; j< B->size2; j++){
           double Bij = gsl_matrix_get(B, i, j);
-          double Mij = gsl_matrix_get(M, i, j);
+          double Mij = gsl_matrix_get(inpA, i, j);
           norm2 += (Mij - Bij) * (Mij - Bij);
         }
       }
       cout << "Approximation error = " << norm2 << endl;
+
+      size_t bad_A = all_orthogonalized(A, S, tolerance);
+      cout << "Number of non-orthogonal pairs in A : " << bad_A << endl;
+      size_t bad_Q = all_orthogonalized(Q, tolerance);
+      cout << "Number of non-orthogonal pairs in Q : " << bad_Q << endl;
+
       cout << "@@@@," << params.m << "," << params.n << "," << update_count << "," << elapsed << "," << norm2 << endl; 
     }
 };

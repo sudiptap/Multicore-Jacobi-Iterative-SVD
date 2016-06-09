@@ -16,20 +16,12 @@ class JacobiAsyncDelayed : public SVDecomposer<JacobiAsyncDelayed> {
 
     int decompose(ofstream &log) {
 
-      const size_t M = A->size1;
-      const size_t N = A->size2;
-
-      gsl_matrix_set_zero(Q);
-      gsl_vector_set_zero(S);
-
       double begin = omp_get_wtime();
 
       /* Initialize the rotation counter and the sweep counter. */
       int count = 1;
       int sweep = 0;
       int sweepmax = 5*N;
-
-      double tolerance = 10 * M * GSL_DBL_EPSILON;
 
       /* Always do at least 12 sweeps. */
       sweepmax = GSL_MAX (sweepmax, 12);

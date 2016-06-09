@@ -1,22 +1,22 @@
-#ifndef __JACOBI_GSL_RANDOM_PERMUTATION_HPP
-#define __JACOBI_GSL_RANDOM_PERMUTATION_HPP
+#ifndef __JACOBI_GSL_BEST_PAIR_FIRST_HPP
+#define __JACOBI_GSL_BEST_PAIR_FIRST_HPP
 
 
 #include "jacobi_svd.hpp"
 
-class JacobiGSLRandomPermutation : public SVDecomposer<JacobiGSLRandomPermutation> {
+  //bool sort_desc (const pair< pair<size_t, size_t>, double> &i, const pair< pair<size_t, size_t>, double> &j) { return (i.second>j.second); }
+
+class JacobiGSLBestPairFirst : public SVDecomposer<JacobiGSLBestPairFirst> {
   private:
 
   public:
 
-  JacobiGSLRandomPermutation(gsl_matrix *M, Params &params):
-    SVDecomposer("JacobiGSLRandomPermutation", M, params) {
+  JacobiGSLBestPairFirst(gsl_matrix *M, Params &params):
+    SVDecomposer("JacobiGSLBestPairFirst", M, params) {
     }
-  ~JacobiGSLRandomPermutation() {
+  ~JacobiGSLBestPairFirst() {
   }
- 
-  //pair<size_t, size_t> myrandom (int i) { return std::rand()%i;}
-
+  
   int decompose(ofstream &log) {
 
     size_t i, j;
@@ -41,31 +41,55 @@ class JacobiGSLRandomPermutation : public SVDecomposer<JacobiGSLRandomPermutatio
       double sj = gsl_blas_dnrm2 (&cj.vector);
       gsl_vector_set(S, j, GSL_DBL_EPSILON * sj);
     }
-
-    vector<pair<size_t, size_t> > indices;
+    /*
+    vector<pair<pair<size_t, size_t>, double> > indices;
     for(size_t j=0; j < N-1; j++){
       for(size_t k=j+1; k < N; k++){
-        indices.push_back(make_pair(j,k));
+		double dotp;
+		gsl_vector_view cj = gsl_matrix_column (A, j);
+        	gsl_vector_view ck = gsl_matrix_column (A, k);
+		gsl_blas_ddot (&cj.vector, &ck.vector, &dotp);
+        	indices.push_back(make_pair(make_pair(j,k),dotp));
       }
     }
-	  size_t update_count = 0;
+    assert(indices.size() == N*(N-1)/2);
+	
+	std::sort(indices.begin(), indices.end(), [](pair< pair<size_t, size_t>, double> i, pair< pair<size_t, size_t>, double> j) { return (i.second<j.second); });
+	//std::sort(indices.begin(), indices.end(), sort_desc);*/
+    size_t update_count = 0;
 
-
+    vector<pair<size_t, size_t> > done;
     /* Orthogonalize A by plane rotations. */
-    std::random_shuffle ( indices.begin(), indices.end());
-    while (count > 0 && sweep <= sweepmax)
+    while (!all_orthogonalized(A,tolerance))
     {
       /* Initialize rotation counter. */
-      count = N * (N - 1) / 2;
+      //count = N * (N - 1) / 2;
       //std::vector<pair<size_t, size_t> > shuffled_indices;
       
-
-      for (auto &idx : indices) 
-      {
-        size_t j = idx.first;
-        size_t k = idx.second;
+        vector<pair<pair<size_t, size_t>, double> > indices;
+        for(size_t j=0; j < N-1; j++){
+          for(size_t k=j+1; k < N; k++){
+		pair<size_t, size_t> new_pair = make_pair(j,k);
+		if(!done.empty()){
+		    if(std::find(done.begin(), done.end(), new_pair) != done.end()) {
+			    continue;
+		    }
+	        }
+		double dotp;
+		gsl_vector_view cj = gsl_matrix_column (A, j);
+        	gsl_vector_view ck = gsl_matrix_column (A, k);
+		gsl_blas_ddot (&cj.vector, &ck.vector, &dotp);
+        	indices.push_back(make_pair(make_pair(j,k),dotp));
+          }
+        }	
+	std::sort(indices.begin(), indices.end(), [](pair< pair<size_t, size_t>, double> i, pair< pair<size_t, size_t>, double> j) { return (i.second>j.second); });
+      //for (auto &idx : indices) 
+      //{
+        size_t j = indices[0].first.first;
+        size_t k = indices[0].first.second;
+        done.push_back(make_pair(j,k));
 	
-	
+	cout << "j=" << j << "\tk=" << k << endl;
 
         double a = 0.0;
         double b = 0.0;
@@ -95,17 +119,15 @@ class JacobiGSLRandomPermutation : public SVDecomposer<JacobiGSLRandomPermutatio
 
         sorted = (GSL_COERCE_DBL(a) >= GSL_COERCE_DBL(b));
         orthog = (fabs (p) <= tolerance * GSL_COERCE_DBL(a * b));
-        noisya = false; //(a < abserr_a);
-        noisyb = false; //(b < abserr_b);
+        noisya = (a < abserr_a);
+        noisyb = (b < abserr_b);
 
         if (sorted && (orthog || noisya || noisyb))
         {
           count--;
           continue;
         }
-
-        update_count++;
-
+	
         /* calculate rotation angles */
         if (v == 0 || !sorted)
         {
@@ -119,9 +141,7 @@ class JacobiGSLRandomPermutation : public SVDecomposer<JacobiGSLRandomPermutatio
         }
 
         /* apply rotation to A */
-
-        update_count++;
-
+	update_count++;
         for (i = 0; i < M; i++)
         {
           const double Aik = gsl_matrix_get (A, i, k);
@@ -142,7 +162,10 @@ class JacobiGSLRandomPermutation : public SVDecomposer<JacobiGSLRandomPermutatio
           gsl_matrix_set (Q, i, j, Qij * cosine + Qik * sine);
           gsl_matrix_set (Q, i, k, -Qij * sine + Qik * cosine);
         }
-      }
+      //}
+
+       // update_count += (N*(N-1)/2 - count); 
+	
       /* Sweep completed. */
       sweep++;
 
@@ -197,22 +220,25 @@ cout << "update count = " << update_count << endl;
     if (count > 0)
     {
       /* reached sweep limit */
-      GSL_ERROR ("Jacobi iterations did not reach desired tolerance",
-          GSL_ETOL);
-      return GSL_FAILURE;
+      //GSL_ERROR ("Jacobi iterations did not reach desired tolerance",
+      //    GSL_ETOL);
+      //return GSL_FAILURE;
     }
 
-//    double total_inner_product = 0.0, p = 0.0;
-//    for(size_t j=0; j < N-1; j++){
-//      gsl_vector_view cj = gsl_matrix_column (A, j);
-//      for(size_t k=j+1; k < N; k++){
-//        gsl_vector_view ck = gsl_matrix_column (A, k);
-//        p = 0.0;
-//        gsl_blas_ddot (&cj.vector, &ck.vector, &p);
-//        total_inner_product += p*p;
-//        log << "j=" << j << "\tk=" << k << "\tp=" << p << "\t" << total_inner_product << endl;
-//      }
-//    }
+    double total_inner_product = 0.0, p = 0.0;
+    for(size_t j=0; j < N-1; j++){
+      gsl_vector_view cj = gsl_matrix_column (A, j);
+      for(size_t k=j+1; k < N; k++){
+        gsl_vector_view ck = gsl_matrix_column (A, k);
+        p = 0.0;
+        gsl_blas_ddot (&cj.vector, &ck.vector, &p);
+	if(fabs(p) > tolerance){
+        	 log << "j=" << j << "\tk=" << k << "\tp=" << p << endl;
+	} 
+        total_inner_product += p*p;
+        //log << "j=" << j << "\tk=" << k << "\tp=" << p << "\t" << total_inner_product << endl;
+      }
+    }
     for (size_t i=0; i<S->size; ++i) {
       log << gsl_vector_get(S, i) << endl;
     }
@@ -221,6 +247,6 @@ cout << "update count = " << update_count << endl;
 };
 
 
-#endif // __JACOBI_GSL_RANDOM_PERMUTATION_HPP
+#endif // __JACOBI_GSL_BEST_PAIR_FIRST_HPP
 
 

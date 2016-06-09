@@ -13,19 +13,15 @@ class JacobiGSL : public SVDecomposer<JacobiGSL> {
     }
   ~JacobiGSL() {
   }
-
+ 
   int decompose(ofstream &log) {
 
-    const size_t M = A->size1;
-    const size_t N = A->size2;
     size_t i, j;
 
     /* Initialize the rotation counter and the sweep counter. */
     int count = 1;
     int sweep = 0;
     int sweepmax = 5*N;
-
-    double tolerance = 10 * M * GSL_DBL_EPSILON;
 
     /* Always do at least 12 sweeps. */
     sweepmax = GSL_MAX (sweepmax, 12);
@@ -156,7 +152,6 @@ cout << "update count = " << update_count << endl;
     /* 
      * Orthogonalization complete. Compute singular values.
      */
-
     {
       double prev_norm = -1.0;
 
