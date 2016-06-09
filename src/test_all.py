@@ -6,6 +6,7 @@ import numpy
 import math
 import subprocess as sp
 from scipy.linalg import hilbert
+from matplotlib.lines import Line2D
 
 import matplotlib as mpl
 mpl.use("pgf")
@@ -25,12 +26,16 @@ pgf_with_pdflatex = {
 mpl.rcParams.update(pgf_with_pdflatex)
 import matplotlib.pyplot as plt
 
+markers = Line2D.filled_markers
+
 num_run = 4
 results = {}
 
-nvalues = [100, 200, 300, 400] #, 1000, 1500, 2000]
+nvalues = [50, 75, 100, 125] #, 1000, 1500, 2000]
+#nvalues = [500, 1000, 1500, 2000, 2500]
 
-solvers = [1, 7]
+solvers = [[1, 4], [7, 4], [7, 8], [9, 4], [9, 8]]
+#solvers = [[1, 4], [7, 4], [7, 8], [7, 16], [7, 32], [9, 4], [9, 8], [9, 16], [9, 32]]
 
 def generate_type4_matrix(m, n):
      x = numpy.zeros((m,n));
@@ -65,12 +70,13 @@ def generate_type1_matrix(m,n):
         h = hilbert(m)
         numpy.savetxt('test_type1.out',h)
 
-def run_and_average(n, s):
+def run_and_average(n, s, k):
     #generate_type4_matrix(3, 3)
-    cmd = "./jacobi -m %d -n %d -s %d" % (n, n, s)
+    cmd = "./jacobi -m %d -n %d -s %d -k %d" % (n, n, s, k)
     print cmd
     timing = 0.0;
     updates = 0.0;
+    solver = str(s)+"."+str(k)
 
     for i in range(num_run):
         output = sp.check_output(cmd, shell=True).split('\n')
@@ -79,9 +85,9 @@ def run_and_average(n, s):
             if (dat[0] == '@@@@'):
                updates += float(dat[3])
                timing += float(dat[4])
-    print "%d\t%f\t%f" % (n, updates/num_run, timing/num_run)
-    results[s]['updates'].append(updates/num_run)
-    results[s]['timing'].append(timing/num_run)
+    print "%d\t%d\t%f\t%f" % (n, k, updates/num_run, timing/num_run)
+    results[solver]['updates'].append(updates/num_run)
+    results[solver]['timing'].append(timing/num_run)
 
                 
 
@@ -93,22 +99,23 @@ def plot(to_plot, yname, ylabel, xlabel):
     plt.grid(b=True, which='both', color='0.15')
     plots = []
     for [s, config] in to_plot:
-        line, = plt.plot(nvalues, results[s][yname], label = config, linewidth=4, marker='o')
+        line, = plt.plot(nvalues, results[s][yname], label = config, linewidth=3, marker=markers[len(plots)-1], markersize=5)
         plots.append(line)
-    plt.legend(handles=plots, loc=2)
+    plt.legend(handles=plots, loc=2, labelspacing=0.05, numpoints=1, borderpad=0, frameon=False, handlelength=1)
     plt.savefig(yname+".pdf")
 
 update_plot = []
 time_plot = []
 
-for s in solvers:
-    results[s] = {}
-    results[s]['updates'] = []
-    results[s]['timing'] = []
+for [s, k] in solvers:
+    solver = str(s)+"."+str(k)
+    results[solver] = {}
+    results[solver]['updates'] = []
+    results[solver]['timing'] = []
     for n in nvalues:
-        run_and_average(n, s)
-    update_plot.append([s, "solver "+str(s)])
-    time_plot.append([s, "solver "+str(s)])
+        run_and_average(n, s, k)
+    update_plot.append([solver, "s"+str(s)+".k"+str(k)])
+    time_plot.append([solver, "s"+str(s)+".k"+str(k)])
 
 plot(update_plot, 'updates', 'Number of updates', 'Matrix size')
 plot(time_plot, 'timing', 'Time taken', 'Matrix size')
