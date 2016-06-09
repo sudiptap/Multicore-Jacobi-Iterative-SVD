@@ -1,21 +1,23 @@
-#ifndef __JACOBI_GSL_H_
-#define __JACOBI_GSL_H_
+#ifndef __JACOBI_GSL_BEST_PAIR_FIRST_HPP
+#define __JACOBI_GSL_BEST_PAIR_FIRST_HPP
+
 
 #include "jacobi_svd.hpp"
 
-class JacobiGSL : public SVDecomposer<JacobiGSL> {
+  //bool sort_desc (const pair< pair<size_t, size_t>, double> &i, const pair< pair<size_t, size_t>, double> &j) { return (i.second>j.second); }
+
+class JacobiGSLBestPairFirst : public SVDecomposer<JacobiGSLBestPairFirst> {
   private:
 
   public:
 
-  JacobiGSL(gsl_matrix *M, Params &params):
-    SVDecomposer("JacobiGSL", M, params) {
+  JacobiGSLBestPairFirst(gsl_matrix *M, Params &params):
+    SVDecomposer("JacobiGSLBestPairFirst", M, params) {
     }
-  ~JacobiGSL() {
+  ~JacobiGSLBestPairFirst() {
   }
   
   bool all_orthogonalized(gsl_matrix* A, double tolerance){
-    size_t num_error = 0;
     for(int j=0; j< A->size1; j++){
       gsl_vector_view cj = gsl_matrix_column (A, j);  
       double a = gsl_blas_dnrm2 (&cj.vector);     	
@@ -27,15 +29,13 @@ class JacobiGSL : public SVDecomposer<JacobiGSL> {
         double b = gsl_blas_dnrm2 (&ck.vector);
         double orthog = (fabs (p) <= tolerance * GSL_COERCE_DBL(a * b));
         if(!orthog){
-          cout<<"j = "<< j << "," << "k = "<< k << ": fabs(p) = " << fabs(p) << " , tolerance * GSL_COERCE_DBL(a * b) = " << tolerance * GSL_COERCE_DBL(a * b) << endl;
-          num_error++;
-          //return false;
+          return false;
         }   
       }
     }
-    cout << "num_error = " << num_error << endl;
     return true;
   }
+
 
   int decompose(ofstream &log) {
 
@@ -65,25 +65,55 @@ class JacobiGSL : public SVDecomposer<JacobiGSL> {
       double sj = gsl_blas_dnrm2 (&cj.vector);
       gsl_vector_set(S, j, GSL_DBL_EPSILON * sj);
     }
-
-    vector<pair<size_t, size_t> > indices;
+    /*
+    vector<pair<pair<size_t, size_t>, double> > indices;
     for(size_t j=0; j < N-1; j++){
       for(size_t k=j+1; k < N; k++){
-        indices.push_back(make_pair(j,k));
+		double dotp;
+		gsl_vector_view cj = gsl_matrix_column (A, j);
+        	gsl_vector_view ck = gsl_matrix_column (A, k);
+		gsl_blas_ddot (&cj.vector, &ck.vector, &dotp);
+        	indices.push_back(make_pair(make_pair(j,k),dotp));
       }
     }
+    assert(indices.size() == N*(N-1)/2);
+	
+	std::sort(indices.begin(), indices.end(), [](pair< pair<size_t, size_t>, double> i, pair< pair<size_t, size_t>, double> j) { return (i.second<j.second); });
+	//std::sort(indices.begin(), indices.end(), sort_desc);*/
+    size_t update_count = 0;
 
+    vector<pair<size_t, size_t> > done;
     /* Orthogonalize A by plane rotations. */
-
-    while (count > 0 && sweep <= sweepmax)
+    while (!all_orthogonalized(A,tolerance))
     {
       /* Initialize rotation counter. */
-      count = N * (N - 1) / 2;
-
-      for (auto &idx : indices) 
-      {
-        size_t j = idx.first;
-        size_t k = idx.second;
+      //count = N * (N - 1) / 2;
+      //std::vector<pair<size_t, size_t> > shuffled_indices;
+      
+        vector<pair<pair<size_t, size_t>, double> > indices;
+        for(size_t j=0; j < N-1; j++){
+          for(size_t k=j+1; k < N; k++){
+		pair<size_t, size_t> new_pair = make_pair(j,k);
+		if(!done.empty()){
+		    if(std::find(done.begin(), done.end(), new_pair) != done.end()) {
+			    continue;
+		    }
+	        }
+		double dotp;
+		gsl_vector_view cj = gsl_matrix_column (A, j);
+        	gsl_vector_view ck = gsl_matrix_column (A, k);
+		gsl_blas_ddot (&cj.vector, &ck.vector, &dotp);
+        	indices.push_back(make_pair(make_pair(j,k),dotp));
+          }
+        }	
+	std::sort(indices.begin(), indices.end(), [](pair< pair<size_t, size_t>, double> i, pair< pair<size_t, size_t>, double> j) { return (i.second>j.second); });
+      //for (auto &idx : indices) 
+      //{
+        size_t j = indices[0].first.first;
+        size_t k = indices[0].first.second;
+        done.push_back(make_pair(j,k));
+	
+	cout << "j=" << j << "\tk=" << k << endl;
 
         double a = 0.0;
         double b = 0.0;
@@ -121,9 +151,7 @@ class JacobiGSL : public SVDecomposer<JacobiGSL> {
           count--;
           continue;
         }
-
-        update_count++;
-
+	
         /* calculate rotation angles */
         if (v == 0 || !sorted)
         {
@@ -137,6 +165,7 @@ class JacobiGSL : public SVDecomposer<JacobiGSL> {
         }
 
         /* apply rotation to A */
+	update_count++;
         for (i = 0; i < M; i++)
         {
           const double Aik = gsl_matrix_get (A, i, k);
@@ -157,8 +186,10 @@ class JacobiGSL : public SVDecomposer<JacobiGSL> {
           gsl_matrix_set (Q, i, j, Qij * cosine + Qik * sine);
           gsl_matrix_set (Q, i, k, -Qij * sine + Qik * cosine);
         }
-      }
+      //}
 
+       // update_count += (N*(N-1)/2 - count); 
+	
       /* Sweep completed. */
       sweep++;
 
@@ -179,8 +210,7 @@ cout << "update count = " << update_count << endl;
     /* 
      * Orthogonalization complete. Compute singular values.
      */
-cout<<all_orthogonalized(A, tolerance)<<endl;
-cout<<all_orthogonalized(Q, tolerance)<<endl;
+
     {
       double prev_norm = -1.0;
 
@@ -214,25 +244,25 @@ cout<<all_orthogonalized(Q, tolerance)<<endl;
     if (count > 0)
     {
       /* reached sweep limit */
-      GSL_ERROR ("Jacobi iterations did not reach desired tolerance",
-          GSL_ETOL);
-      return GSL_FAILURE;
+      //GSL_ERROR ("Jacobi iterations did not reach desired tolerance",
+      //    GSL_ETOL);
+      //return GSL_FAILURE;
     }
 
-//    double total_inner_product = 0.0, p = 0.0;
-//    for(size_t j=0; j < N-1; j++){
-//      gsl_vector_view cj = gsl_matrix_column (A, j);
-//      for(size_t k=j+1; k < N; k++){
-//        gsl_vector_view ck = gsl_matrix_column (A, k);
-//        p = 0.0;
-//        gsl_blas_ddot (&cj.vector, &ck.vector, &p);
-//	if(fabs(p) > tolerance){
-//	    log << "j=" << j << "\tk=" << k << "\tp=" << p << endl;
-//	}
-//        total_inner_product += p*p;
-//        //log << "j=" << j << "\tk=" << k << "\tp=" << p << "\t" << total_inner_product << endl;
-//      }
-//    }
+    double total_inner_product = 0.0, p = 0.0;
+    for(size_t j=0; j < N-1; j++){
+      gsl_vector_view cj = gsl_matrix_column (A, j);
+      for(size_t k=j+1; k < N; k++){
+        gsl_vector_view ck = gsl_matrix_column (A, k);
+        p = 0.0;
+        gsl_blas_ddot (&cj.vector, &ck.vector, &p);
+	if(fabs(p) > tolerance){
+        	 log << "j=" << j << "\tk=" << k << "\tp=" << p << endl;
+	} 
+        total_inner_product += p*p;
+        //log << "j=" << j << "\tk=" << k << "\tp=" << p << "\t" << total_inner_product << endl;
+      }
+    }
     for (size_t i=0; i<S->size; ++i) {
       log << gsl_vector_get(S, i) << endl;
     }
@@ -241,5 +271,6 @@ cout<<all_orthogonalized(Q, tolerance)<<endl;
 };
 
 
-#endif // __JACOBI_GSL_H_
+#endif // __JACOBI_GSL_BEST_PAIR_FIRST_HPP
+
 

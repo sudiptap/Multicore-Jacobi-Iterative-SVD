@@ -6,6 +6,9 @@
 #include "jacobi_gsl_random_pair.hpp"
 #include "jacobi_gsl_random_permutation.hpp"
 #include "jacobi_gsl_optimal_pair.hpp"
+#include "jacobi_group_jrs_multicore.hpp"
+#include "jacobi_gsl_optimal_pair_multicore.hpp"
+#include "jacobi_gsl_sorted_allPairs.hpp";
 //#include "jacobi_gsl_best_pair_first.hpp"
 #include <getopt.h>
 
@@ -97,9 +100,15 @@ int main(int argc, char **argv) {
     } else if (version == "7") {
       JacobiGSLOptimalPair jacobi(A, params);
       jacobi.decomposeWriteOutput(A);
-//    } else if (version == "8") {
-//      JacobiGSLBestPairFirst jacobi(A, params);
-//      jacobi.decomposeWriteOutput(A);
+    } else if (version == "8") {
+      JacobiGroupJRSMulticore jacobi(A, params);
+      jacobi.decomposeWriteOutput(A);
+    } else if (version == "9") {
+      JacobiGSLOptimalPairMulticore jacobi(A, params);
+      jacobi.decomposeWriteOutput(A);
+    }else if (version == "10") {
+      JacobiGSLSortedAllPairs jacobi(A, params);
+      jacobi.decomposeWriteOutput(A);
     }else {
       cout << "Unknown version: " << version << endl;
       exit(-1);

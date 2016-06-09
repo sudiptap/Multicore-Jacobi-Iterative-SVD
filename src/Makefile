@@ -11,8 +11,10 @@ SRCS=jacobi_svd.cpp jacobi_async.hpp \
 		 jacobi_async_delayed.hpp \
 		 jacobi_gsl_random_pair.hpp \
 		 jacobi_gsl_random_permutation.hpp \
-		 jacobi_gsl_optimal_pair.hpp
-
+		 jacobi_gsl_optimal_pair.hpp \
+		 jacobi_group_jrs_multicore.hpp \
+                 jacobi_gsl_optimal_pair_multicore.hpp \
+                 jacobi_gsl_sorted_allPairs.hpp
 		 #jacobi_gsl_best_pair_first.hpp \
 
 .PHONY: all clean dist-clean

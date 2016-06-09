@@ -1,28 +1,40 @@
-#ifndef __JACOBI_GSL_H_
-#define __JACOBI_GSL_H_
+#ifndef __JACOBI_GSL_SORTED_ALLPAIR_HPP
+#define __JACOBI_GSL_SORTED_ALLPAIR_HPP
+
 
 #include "jacobi_svd.hpp"
 
-class JacobiGSL : public SVDecomposer<JacobiGSL> {
+  bool sort_desc (const pair< pair<size_t, size_t>, double> &i, const pair< pair<size_t, size_t>, double> &j) { return (i.second>j.second); }
+
+class JacobiGSLSortedAllPairs : public SVDecomposer<JacobiGSLSortedAllPairs> {
   private:
 
   public:
 
-  JacobiGSL(gsl_matrix *M, Params &params):
-    SVDecomposer("JacobiGSL", M, params) {
+  JacobiGSLSortedAllPairs(gsl_matrix *M, Params &params):
+    SVDecomposer("JacobiGSLSortedAllPairs", M, params) {
     }
-  ~JacobiGSL() {
+  ~JacobiGSLSortedAllPairs() {
   }
   
   bool all_orthogonalized(gsl_matrix* A, double tolerance){
     size_t num_error = 0;
+	double dotp, a, b, abserr_a, abserr_b;
     for(int j=0; j< A->size1; j++){
       gsl_vector_view cj = gsl_matrix_column (A, j);  
-      double a = gsl_blas_dnrm2 (&cj.vector);     	
+      double a = gsl_blas_dnrm2 (&cj.vector);
+	  abserr_a = gsl_vector_get(S,j);
+      bool noisya = (a < abserr_a);
+	  if (noisya) continue;
       for(int k=j+1; k< A->size2; k++){
         double p = 0.0;
 		gsl_vector_view ck = gsl_matrix_column (A, k);
         gsl_blas_ddot (&cj.vector, &ck.vector, &p);
+		b = gsl_blas_dnrm2 (&ck.vector);
+        abserr_b = gsl_vector_get(S,k);
+        bool noisyb = (b < abserr_b);
+		if (noisyb)
+			continue;
         p *= 2.0 ;        
         double b = gsl_blas_dnrm2 (&ck.vector);
         double orthog = (fabs (p) <= tolerance * GSL_COERCE_DBL(a * b));
@@ -36,6 +48,7 @@ class JacobiGSL : public SVDecomposer<JacobiGSL> {
     cout << "num_error = " << num_error << endl;
     return true;
   }
+
 
   int decompose(ofstream &log) {
 
@@ -66,24 +79,49 @@ class JacobiGSL : public SVDecomposer<JacobiGSL> {
       gsl_vector_set(S, j, GSL_DBL_EPSILON * sj);
     }
 
-    vector<pair<size_t, size_t> > indices;
+    vector<pair<pair<size_t, size_t>, double> > indices;
     for(size_t j=0; j < N-1; j++){
       for(size_t k=j+1; k < N; k++){
-        indices.push_back(make_pair(j,k));
+		double dotp;
+		gsl_vector_view cj = gsl_matrix_column (A, j);
+        	gsl_vector_view ck = gsl_matrix_column (A, k);
+		gsl_blas_ddot (&cj.vector, &ck.vector, &dotp);
+        	indices.push_back(make_pair(make_pair(j,k),dotp));
       }
     }
+    assert(indices.size() == N*(N-1)/2);
+	/* sort the pairs in descending order of dot product */
+	std::sort(indices.begin(), indices.end(), [](pair< pair<size_t, size_t>, double> i, pair< pair<size_t, size_t>, double> j) { return (i.second>j.second); });
+	//std::sort(indices.begin(), indices.end(), sort_desc);
+	size_t update_count = 0;
+
 
     /* Orthogonalize A by plane rotations. */
-
     while (count > 0 && sweep <= sweepmax)
     {
       /* Initialize rotation counter. */
       count = N * (N - 1) / 2;
-
+      //std::vector<pair<size_t, size_t> > shuffled_indices;
+      
+        vector<pair<pair<size_t, size_t>, double> > indices;
+        for(size_t j=0; j < N-1; j++){
+          for(size_t k=j+1; k < N; k++){
+		double dotp;
+		gsl_vector_view cj = gsl_matrix_column (A, j);
+        	gsl_vector_view ck = gsl_matrix_column (A, k);
+		gsl_blas_ddot (&cj.vector, &ck.vector, &dotp);
+        	indices.push_back(make_pair(make_pair(j,k),dotp));
+          }
+        }	
+	std::sort(indices.begin(), indices.end(), [](pair< pair<size_t, size_t>, double> i, pair< pair<size_t, size_t>, double> j) { return (i.second<j.second); });
+	  
       for (auto &idx : indices) 
-      {
-        size_t j = idx.first;
-        size_t k = idx.second;
+	  //for(int i=0; i< indices.size(); i++)
+      {	    
+        size_t j = idx.first.first;
+        size_t k = idx.first.second;
+	
+	
 
         double a = 0.0;
         double b = 0.0;
@@ -121,9 +159,7 @@ class JacobiGSL : public SVDecomposer<JacobiGSL> {
           count--;
           continue;
         }
-
-        update_count++;
-
+	
         /* calculate rotation angles */
         if (v == 0 || !sorted)
         {
@@ -137,6 +173,7 @@ class JacobiGSL : public SVDecomposer<JacobiGSL> {
         }
 
         /* apply rotation to A */
+	update_count++;
         for (i = 0; i < M; i++)
         {
           const double Aik = gsl_matrix_get (A, i, k);
@@ -159,8 +196,10 @@ class JacobiGSL : public SVDecomposer<JacobiGSL> {
         }
       }
 
+       // update_count += (N*(N-1)/2 - count); 
+	
       /* Sweep completed. */
-      sweep++;
+      sweep++; //cout<<"sweep = "<<sweep<<endl;
 
 //      double total_inner_product = 0.0, p = 0.0;
 //      for(size_t j=0; j < N-1; j++){
@@ -219,20 +258,20 @@ cout<<all_orthogonalized(Q, tolerance)<<endl;
       return GSL_FAILURE;
     }
 
-//    double total_inner_product = 0.0, p = 0.0;
-//    for(size_t j=0; j < N-1; j++){
-//      gsl_vector_view cj = gsl_matrix_column (A, j);
-//      for(size_t k=j+1; k < N; k++){
-//        gsl_vector_view ck = gsl_matrix_column (A, k);
-//        p = 0.0;
-//        gsl_blas_ddot (&cj.vector, &ck.vector, &p);
-//	if(fabs(p) > tolerance){
-//	    log << "j=" << j << "\tk=" << k << "\tp=" << p << endl;
-//	}
-//        total_inner_product += p*p;
-//        //log << "j=" << j << "\tk=" << k << "\tp=" << p << "\t" << total_inner_product << endl;
-//      }
-//    }
+    double total_inner_product = 0.0, p = 0.0;
+    for(size_t j=0; j < N-1; j++){
+      gsl_vector_view cj = gsl_matrix_column (A, j);
+      for(size_t k=j+1; k < N; k++){
+        gsl_vector_view ck = gsl_matrix_column (A, k);
+        p = 0.0;
+        gsl_blas_ddot (&cj.vector, &ck.vector, &p);
+	if(fabs(p) > tolerance){
+        	 log << "j=" << j << "\tk=" << k << "\tp=" << p << endl;
+	} 
+        total_inner_product += p*p;
+        //log << "j=" << j << "\tk=" << k << "\tp=" << p << "\t" << total_inner_product << endl;
+      }
+    }
     for (size_t i=0; i<S->size; ++i) {
       log << gsl_vector_get(S, i) << endl;
     }
@@ -241,5 +280,6 @@ cout<<all_orthogonalized(Q, tolerance)<<endl;
 };
 
 
-#endif // __JACOBI_GSL_H_
+#endif // __JACOBI_GSL_SORTED_ALLPAIR_HPP
+
 
