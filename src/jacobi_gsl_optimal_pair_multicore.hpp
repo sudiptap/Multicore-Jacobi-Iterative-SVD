@@ -26,7 +26,7 @@ class JacobiGSLOptimalPairMulticore : public SVDecomposer<JacobiGSLOptimalPairMu
         std::sort(indices.begin(), indices.begin()+indx_sz, sort_desc);
         if (get<2>(indices[0]) <= tolerance) break;
         //size_t pivot_to_use = min(indx_sz, pivot_count / params.top_frac);
-        while (indx_sz > 0) {
+        while (indx_sz > 10*params.num_threads) {
           size_t pivot_used = 0;
           fill_n(begin(visited), N, 0);
           for (long idx=0; idx < indx_sz; ) {
@@ -46,6 +46,15 @@ class JacobiGSLOptimalPairMulticore : public SVDecomposer<JacobiGSLOptimalPairMu
           for(size_t idx=0; idx< pivot_used; idx++) {
             size_t j = get<0>(ind_pivots[idx]);
             size_t k = get<1>(ind_pivots[idx]);
+            double cosine, sine;
+            if (needs_update(j, k, cosine, sine)) {
+              do_update(j,k,cosine,sine);
+              update_count++;
+            }
+          }
+          for(long idx=0; idx< indx_sz; idx++) {
+            size_t j = get<0>(indices[idx]);
+            size_t k = get<1>(indices[idx]);
             double cosine, sine;
             if (needs_update(j, k, cosine, sine)) {
               do_update(j,k,cosine,sine);
