@@ -77,7 +77,7 @@ class JacobiAsyncDelayed : public SVDecomposer<JacobiAsyncDelayed> {
           double q = 0.0;
           double cosine, sine;
           double v;
-          double abserr_a, abserr_b;
+          //double abserr_a, abserr_b;
           int sorted, orthog, noisya = 0, noisyb = 0;
 
           gsl_vector_view cj = gsl_matrix_column (A, j);
@@ -99,8 +99,8 @@ class JacobiAsyncDelayed : public SVDecomposer<JacobiAsyncDelayed> {
 
           sorted = (GSL_COERCE_DBL(a) >= GSL_COERCE_DBL(b));
           orthog = (fabs (p) <= tolerance * GSL_COERCE_DBL(a * b));
-          noisya = (a < abserr_a);
-          noisyb = (b < abserr_b);
+          //noisya = (a < abserr_a);
+          //noisyb = (b < abserr_b);
 
           if (sorted && (orthog || noisya || noisyb))
           {

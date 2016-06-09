@@ -13,25 +13,30 @@ bool sort_desc (const pivot &i, const pivot &j)
 
 void populate_indices(vector<pivot> &indices, gsl_matrix *A, gsl_vector *S, size_t M, size_t N) 
 {
+  indices.clear();
   double dotp, a, b, abserr_a, abserr_b;
   for(size_t j=0; j < M-1; j++){
     gsl_vector_view cj = gsl_matrix_column (A, j);
     a = gsl_blas_dnrm2 (&cj.vector);
     abserr_a = gsl_vector_get(S,j);
     bool noisya = (a < abserr_a);
-    if (noisya) continue;
+    //if (noisya) continue;
     for(size_t k=j+1; k < N; k++){
       gsl_vector_view ck = gsl_matrix_column (A, k);
       gsl_blas_ddot (&cj.vector, &ck.vector, &dotp);
       b = gsl_blas_dnrm2 (&ck.vector);
       abserr_b = gsl_vector_get(S,k);
       bool noisyb = (b < abserr_b);
-      if (!noisyb) {
-        indices[j*(j-1)/2+k] = make_tuple(j,k,fabs(2*dotp)/GSL_COERCE_DBL(a*b));
-      }
+     // if (!noisyb) {
+        //indices[j*(j-1)/2+k] = make_tuple(j,k,fabs(2*dotp)/GSL_COERCE_DBL(a*b));
+        indices.push_back(make_tuple(j,k,fabs(2*dotp)/GSL_COERCE_DBL(a*b)));
+        //indices[j*(j-1)/2+k] = make_tuple(j,k,fabs(dotp));
+     // }
     }
   }
 }
+
+#define TOP_FRAC 1 
 
 class JacobiGSLOptimalPair : public SVDecomposer<JacobiGSLOptimalPair> {
   private:
@@ -57,7 +62,7 @@ class JacobiGSLOptimalPair : public SVDecomposer<JacobiGSLOptimalPair> {
           double b = gsl_blas_dnrm2 (&ck.vector);
           double orthog = (fabs (p) <= tolerance * GSL_COERCE_DBL(a * b));
           if(!orthog){
-	    cout<<"j = "<< j << "," << "k = "<< k << ": fabs(p) = " << fabs(p) << " , tolerance * GSL_COERCE_DBL(a * b) = " << tolerance * GSL_COERCE_DBL(a * b) << endl;
+            cout<<"j = "<< j << "," << "k = "<< k << ": fabs(p) = " << fabs(p) << " a=" << a << " b=" << b <<" , tolerance * GSL_COERCE_DBL(a * b) = " << tolerance * GSL_COERCE_DBL(a * b) << endl;
             num_error++;
           }   
         }
@@ -96,13 +101,13 @@ class JacobiGSLOptimalPair : public SVDecomposer<JacobiGSLOptimalPair> {
         gsl_vector_set(S, j, GSL_DBL_EPSILON * sj);
       }
 
-      double lowest_a = DBL_MAX;
+      //double lowest_a = DBL_MAX;
       double sort_time = 0.0;
 
       size_t pivot_count = N*(N-1)/2;
-      size_t pivot_used = pivot_count / 32;
 
-      vector<pivot> indices(pivot_count);
+      //vector<pivot> indices(pivot_count);
+      vector<pivot> indices;
 
       /* Orthogonalize A by plane rotations. */
       while (count > 0 && sweep <= sweepmax)
@@ -113,19 +118,18 @@ class JacobiGSLOptimalPair : public SVDecomposer<JacobiGSLOptimalPair> {
 
         //double begin = omp_get_wtime();
         populate_indices(indices, A, S, M, N);
-	//double end = omp_get_wtime();
-      	//sort_time += end-begin;
-      
+        //double end = omp_get_wtime();
+        //sort_time += end-begin;
+
         std::sort(indices.begin(), indices.end(), sort_desc);
-      
-        size_t limit = 0;
-        size_t indsiz = indices.size();
+
+        //size_t indsiz = indices.size();
         //cout << get<2>(indices[0]) << "," << get<2>(indices[indsiz/4]) << "," << get<2>(indices[indsiz/2]) << "," << get<2>(indices[3*indsiz/4]) << "," << get<2>(indices[indsiz-1]) << endl;
-        if (fabs(lowest_a - get<2>(indices[0])) > 1e-10) {
-          lowest_a = get<2>(indices[0]);
-        } else {
-          break;
-        }
+
+        if (get<2>(indices[0]) <= tolerance) break;
+
+        size_t pivot_used = min(indices.size(), pivot_count / 32);
+
         //for (auto &idx : indices) 
         for(size_t idx=0; idx< pivot_used; idx++)
         {
@@ -225,10 +229,13 @@ class JacobiGSLOptimalPair : public SVDecomposer<JacobiGSLOptimalPair> {
       cout << "update count = " << update_count << endl;
       cout << "sort time = " << sort_time << endl;
 
+      cout<<all_orthogonalized(A, tolerance)<<endl;
+      cout<<all_orthogonalized(Q, tolerance)<<endl;
+
       /* 
        * Orthogonalization complete. Compute singular values.
        */
-      
+
       {
         double prev_norm = -1.0;
 
@@ -258,9 +265,11 @@ class JacobiGSLOptimalPair : public SVDecomposer<JacobiGSLOptimalPair> {
           }
         }
       }
-      
-      //cout<<all_orthogonalized(A, tolerance)<<endl;
-      //cout<<all_orthogonalized(Q, tolerance)<<endl;
+
+      assert(sweep < sweepmax);
+      cout << "sweep=" << sweep << ", sweepmax=" << sweepmax << endl;
+
+
       if (count > 0)
       {
         /* reached sweep limit */
@@ -269,20 +278,20 @@ class JacobiGSLOptimalPair : public SVDecomposer<JacobiGSLOptimalPair> {
         //return GSL_FAILURE;
       }
 
-//    double total_inner_product = 0.0, p = 0.0;
-//    for(size_t j=0; j < N-1; j++){
-//      gsl_vector_view cj = gsl_matrix_column (A, j);
-//      for(size_t k=j+1; k < N; k++){
-//        gsl_vector_view ck = gsl_matrix_column (A, k);
-//        p = 0.0;
-//        gsl_blas_ddot (&cj.vector, &ck.vector, &p);
-//	if(fabs(p) > tolerance){
-//	    log << "j=" << j << "\tk=" << k << "\tp=" << p << endl;
-//	}
-//        total_inner_product += p*p;
-//        //log << "j=" << j << "\tk=" << k << "\tp=" << p << "\t" << total_inner_product << endl;
-//      }
-//    }
+      //    double total_inner_product = 0.0, p = 0.0;
+      //    for(size_t j=0; j < N-1; j++){
+      //      gsl_vector_view cj = gsl_matrix_column (A, j);
+      //      for(size_t k=j+1; k < N; k++){
+      //        gsl_vector_view ck = gsl_matrix_column (A, k);
+      //        p = 0.0;
+      //        gsl_blas_ddot (&cj.vector, &ck.vector, &p);
+      //	if(fabs(p) > tolerance){
+      //	    log << "j=" << j << "\tk=" << k << "\tp=" << p << endl;
+      //	}
+      //        total_inner_product += p*p;
+      //        //log << "j=" << j << "\tk=" << k << "\tp=" << p << "\t" << total_inner_product << endl;
+      //      }
+      //    }
       for (size_t i=0; i<S->size; ++i) {
         log << gsl_vector_get(S, i) << endl;
       }
