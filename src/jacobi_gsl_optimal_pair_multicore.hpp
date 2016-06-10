@@ -3,17 +3,49 @@
 
 #include "jacobi_gsl_optimal_pair.hpp"
 
+
+
 class JacobiGSLOptimalPairMulticore : public SVDecomposer<JacobiGSLOptimalPairMulticore> {
   private:
+    vector<double> noisy;
+    size_t populate_indices_parallel(vector<pivot> &indices, gsl_matrix *A, gsl_vector *S, size_t M, size_t N) 
+    {
+      double dotp, a, b, abserr_a, abserr_b;
+      size_t idx = 0;
+#pragma omp parallel for
+      for (size_t j=0; j<N; ++j) {
+        gsl_vector_view cj = gsl_matrix_column (A, j);
+        a = gsl_blas_dnrm2 (&cj.vector);
+        abserr_a = gsl_vector_get(S,j);
+        noisy[j] = (a < abserr_a) ? 0.0 : a;
+      }
+      for(size_t j=0; j < M-1; j++){
+        if (noisy[j] == 0.0) continue;
+        for(size_t k=j+1; k < N; k++){
+          if (noisy[k] == 0.0) continue;
+          indices[idx++] = make_tuple(j,k,DBL_MIN);
+        }
+      }
+#pragma omp parallel for schedule(dynamic)
+      for(size_t i=0; i < idx; i++){
+        size_t j = get<0>(indices[i]);
+        size_t k = get<1>(indices[i]);
+        gsl_vector_view cj = gsl_matrix_column (A, j);
+        gsl_vector_view ck = gsl_matrix_column (A, k);
+        gsl_blas_ddot (&cj.vector, &ck.vector, &dotp);
+        get<2>(indices[i]) = fabs(2*dotp)/GSL_COERCE_DBL(noisy[j]*noisy[k]);
+      }
+      return idx;
+    }
 
   public:
 
     JacobiGSLOptimalPairMulticore(gsl_matrix *M, Params &params):
       SVDecomposer("JacobiGSLOptimalPairMulticore", M, params) {
+        noisy.resize(N);
       }
     ~JacobiGSLOptimalPairMulticore() {
     }
-
 
     int decompose(ofstream &log) {
       size_t pivot_count = N*(N-1)/2;
@@ -22,7 +54,7 @@ class JacobiGSLOptimalPairMulticore : public SVDecomposer<JacobiGSLOptimalPairMu
       vector<int> visited(N);
       sweep = 0;
       while (sweep <= sweepmax) {
-       long indx_sz = populate_indices(indices, A, S, M, N);
+        long indx_sz = populate_indices_parallel(indices, A, S, M, N);
         std::sort(indices.begin(), indices.begin()+indx_sz, sort_desc);
         if (get<2>(indices[0]) <= tolerance) break;
         indx_sz = min(indx_sz, (long)pivot_count / params.top_frac);
