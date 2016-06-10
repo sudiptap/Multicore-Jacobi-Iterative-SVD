@@ -35,7 +35,7 @@ struct Params {
   int m;
   int n;
   int max_iters;
-  int num_threads;
+  size_t num_threads;
   int top_frac;
 };
 
