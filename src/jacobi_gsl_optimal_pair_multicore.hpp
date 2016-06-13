@@ -3,14 +3,12 @@
 
 #include "jacobi_gsl_optimal_pair.hpp"
 
-
-
 class JacobiGSLOptimalPairMulticore : public SVDecomposer<JacobiGSLOptimalPairMulticore> {
   private:
     vector<double> noisy;
     size_t populate_indices_parallel(vector<pivot> &indices, gsl_matrix *A, gsl_vector *S, size_t M, size_t N) 
     {
-      double dotp, a, b, abserr_a, abserr_b;
+      double dotp, a, abserr_a;
       size_t idx = 0;
 #pragma omp parallel for
       for (size_t j=0; j<N; ++j) {
@@ -74,18 +72,19 @@ class JacobiGSLOptimalPairMulticore : public SVDecomposer<JacobiGSLOptimalPairMu
             }
           }
           //cout << "Number of pivots used in sweep " << sweep << " = " << pivot_used << endl;
-          if (pivot_used > 5*params.num_threads) {
-#pragma omp parallel for
+          if ((long)pivot_used > 5*params.num_threads) {
+            size_t local_update = update_count;
+#pragma omp parallel for reduction(+:local_update)
             for(size_t idx=0; idx< pivot_used; idx++) {
               size_t j = get<0>(ind_pivots[idx]);
               size_t k = get<1>(ind_pivots[idx]);
               double cosine, sine;
               if (needs_update(j, k, cosine, sine)) {
                 do_update(j,k,cosine,sine);
-#pragma omp atomic
-                update_count++;
+                local_update++;
               }
             }
+            update_count = local_update;
           } else {
             for(size_t idx=0; idx< pivot_used; idx++) {
               size_t j = get<0>(ind_pivots[idx]);
