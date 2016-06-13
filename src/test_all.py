@@ -31,11 +31,11 @@ markers = Line2D.filled_markers
 num_run = 4
 results = {}
 
-nvalues = [50, 75, 100, 125] #, 1000, 1500, 2000]
-#nvalues = [500, 1000, 1500, 2000, 2500]
+#nvalues = [50, 75, 100, 125] #, 1000, 1500, 2000]
+nvalues = [500, 1000, 1500, 2000, 2500, 3000]
 
-solvers = [[1, 4], [7, 4], [7, 8], [9, 4], [9, 8]]
-#solvers = [[1, 4], [7, 4], [7, 8], [7, 16], [7, 32], [9, 4], [9, 8], [9, 16], [9, 32]]
+#solvers = [[1, 4], [7, 4], [7, 8], [9, 4], [9, 8]]
+solvers = [[1, 4], [7, 4], [7, 8], [7, 16], [7, 32], [9, 4], [9, 8], [9, 16], [9, 32]]
 
 def generate_type4_matrix(m, n):
      x = numpy.zeros((m,n));
@@ -101,7 +101,7 @@ def plot(to_plot, yname, ylabel, xlabel):
     for [s, config] in to_plot:
         line, = plt.plot(nvalues, results[s][yname], label = config, linewidth=3, marker=markers[len(plots)-1], markersize=5)
         plots.append(line)
-    plt.legend(handles=plots, loc=2, labelspacing=0.05, numpoints=1, borderpad=0, frameon=False, handlelength=1)
+    plt.legend(plots, loc=2, labelspacing=0.05, numpoints=1, borderpad=0, frameon=False, handlelength=1)
     plt.savefig(yname+".pdf")
 
 update_plot = []

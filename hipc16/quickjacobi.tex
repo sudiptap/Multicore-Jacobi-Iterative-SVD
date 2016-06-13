@@ -15,6 +15,8 @@
 \usepackage{fixltx2e}
 \usepackage{stfloats}
 \usepackage{url}
+\usepackage{amssymb}
+\usepackage{filecontents}
 
 % correct bad hyphenation here
 \hyphenation{op-tical net-works semi-conduc-tor}
@@ -86,7 +88,111 @@ SVD; Jacobi iterations; JRS; parallel algorithms
 
 
 \section{Introduction}
+Singular Value Decomposition (SVD) is considered a fundamental computation in linear algebra and it has application in almost every possible fields one can think of. Its widely used in areas such as statistical analysis techniques, independent component analysis, information retrieval, data mining, singnal processing etc. Applications involving analysis or BigData using SVD requires efficient and fast algorithms to process matrices with thousands of rows and columns in real time. Hence, there is a strong need for efficient SVD algorithms using sequential and parallel computers. In this paper we introduce novel sequential and parallel algorithms for SVD computation of $m \times n$ dense matrix $A$ with $(m \geq n)$. 
 
+\par SVD takes as input a matrix $A \in \mathbb{R}^{m \times n}$ where $(m \geq n)$ and outputs three matrices $U, S, V$ such that $A = USV^T$, where $U \in \mathbb{R}^{m \times m}$ is an orthogonal matrix (i.e. $U^TU = I$) and $V \in n \times n$ is an orthogonal matrix (i.e. $V^TV = I$) and $S \in \mathbb{R}^{m \times n}$ is a diagonal matrix. If $S = diag(\sigma_1, \sigma_2,......\sigma_n)$, then these diagonal elements are called singular values of $A$. The columns vectors of $U$ and $V$ are referred to as left and right singular vectors respectively.
+
+\subsection{Two-sided Jacobi Algorithm}
+
+\par Among all algorithms for finding SVD Jacobi iteration based algorithms are most widely used in parallel settings since they are easier to parallelize than others. There are two types of Jacobi algorithms for SVD, namely Two-sided Jacobi SVD algorithm and One-sided Jacobi SVD algorithm. Two-sided Jacobi SVD algorithm is applicable to symmetric matrices only. It applies a series of \textit{Jacobi Rotations} on input matrix $A$ to diagonalize it. 
+\[
+A_{k+1} = U_kA_kU_k^T, k =1,2,......
+\]   
+where $U_k = U_k(i,j,\phi^k_{ij})$ represents a rotation of $(i,j)$-plane. 
+\begin{gather}
+u_{ii}^k = u_{jj}^k = c^k = \text{cos}(\phi^k_{ij}) \\
+u_{ij}^k = -u_{ji}^k = s^k = \text{sin}(\phi^k_{ij}) 
+\end{gather}
+
+$\phi^k$ is chosen such that 
+\begin{gather}
+b^{k+1}_{ij} = b^{k+1}_{ji} = 0,\\
+\text{or} \thinspace \text{tan}(2\phi^k_{ij}) = \frac{2b^k_{ij}}{b^k_{ii} - b^k_{jj}} \\
+\text{and} \thinspace\text{where} |\phi^k_{ij}| \leq \frac{1}{4}\pi 
+\end{gather}
+$c^k$ is computed by 
+\begin{gather}
+c^k = \frac{1}{\sqrt{1+t^2_k}} \thinspace \text{and} s^k = c^kt^k \\
+\text{where} t^k \text{is the smaller root (in magnitude) of the quadratic equation given by} \\
+{t^k}^2 + 2\alpha^kt^k - 1 = 0, \alpha^k = \text{cot}(2\phi^k_{ij}) \\
+\text{hence}, t^k = \frac{sign(\alpha^k)}{|\alpha^k| + \sqrt{1+{\alpha^k}^2}}
+\end{gather}
+$B_{k+1}$ is identical to $B_k$ other than the rows and columns $i$ and $j$ and the modified elements are given by 
+\begin{gather}
+b_{ii}^{k+1} = b_{ii}^k + t^{k}b_{ij}^k \\
+b_{jj}^{k+1} = b_jj^k - t^kb_{ij}^k \\
+b_{ix}^{k+1} = c^{k}b_{ix}^k + s^{k}_{jr} \\
+b_{jx}^{k+1} = -s_kb^k_{ix} + c_kb^k_{jx} \\
+x \neq i,j
+\end{gather}
+The above algorithm ensures that with every rotation $A_k$ approaches the diagonal matrix $S$ = diag$(\sigma_1, \sigma_2,....\sigma_n)$ and $(U_k......U_2U_1)^T$ approaches a matrix whose $j-$th column is the eigenvector corresponding to $\sigma_j$. 
+\cite{luk1989proof} shows that each sweepcauses the off-diagonal norm to decrase and evetually the algorithm converges. According to the original Jacobi scheme one should search for the largest off-diagonal element to eliminate at every rotation. However, this scheme is extremely time consuming in practice. Hence, a common scheme used is to choose elements $(i,j)$ to be annihilated in cyclic order $(1,2), (1,3), (1,4),.....(1,n),(2,3),......(2,n),......,(n-1,n)$. This is known as cyclic jacobi algorithm. cite{forsythe1960cyclic, schonhage1961konvergenz, wilkinson1962note} show that cyclic Jacobi algorithm has a quadratic convergence rate and argues that convergence ususally occurs within 6 to 10 sweeps or $3n^2$ to $5n^2$ Jacobi rotations.
+
+\subsection{One-sided Jacobi Algorithm}
+
+\par A more general and more widely used algorithm is One-Sided Jacobi SVD algorithm that deals with any matrix. One-Side Jacobi SVD algorithm finds an orthogonal matrix $V \in \mathbb{R}^{n \times n}$, such that $B = (b_1, b_2,.......,b_n) = AV$ where $B \in \mathbb{R}^{m \times n}$ is an orthogonal matrix. The above statement implies that:
+\[
+b_i^Tb_j = \sigma_i^2\delta_{ij}
+\]
+where
+\[
+\delta_{ij}= 
+\begin{cases}
+    0,& \text{for }i\neq j\\
+    1,& \text{for }i = j\\
+\end{cases}
+\]
+
+The quantities $\sigma_i$ are called \textit{Singular Values} of matrix $A$. $B$ can be written as $B = US$ where $U = (u_1, u_2,....,u_k)$such that $u_j = \frac{b_j}{\sigma_j}$ for $\sigma_j \neq 0$ and $U^TU = I \in \mathbb{R}^{n \times n}$. Hence we can now write $B = AV$ as $US = AV$ or using properties of orthogonality $A = USV^T$. If some of the $\sigma_j$s are zeros singular values, the corresponding columns of $U$ are set to null vectors. The first $k$ singular values are always chosen to be non-zero causing the matrix $U^TU$ to be unit matrix of order $k$ augmented to order n with zeros. This is written as follows :
+
+\begin{equation}
+S = \left( \begin{array}{cc}
+\textbf{1}_k & \hfill\\
+\hfill & \textbf{0}_{n-k}\\
+\end{array} \right)
+\end{equation} 
+
+The matrix $V$ used for orthogonalization of $A$ is a product of matrices indexed by $V^{(k)}$.
+\[
+V = \prod_{k=1}^{z}V^{(k)}
+\]
+
+$V$ is constructed in such a way that
+\begin{equation}
+(a_i, a_j) \left[ \begin{array}{cc}
+c & -s \\
+s & c \\
+\end{array} \right]
+= (a_i^{k+1}, a_j^{k+1}) 
+\end{equation}
+, $i < j$ and $||a_i^{k+1}||_2 > ||a_j^{k+1}||_2$,
+here $a_i$ is the $i-$th column of $A$. This is achieved by choosing 
+
+$c = [\frac{\beta + \gamma}{2\gamma}]^{\frac{1}{2}}$ and $s = [\frac{\alpha}{2\gamma c}]$,
+$s = [\frac{\gamma - \beta}{2\gamma}]^{\frac{1}{2}}$ and $c = [\frac{\alpha}{2\gamma s}]$
+
+where $\alpha = 2a_i^Ta_j$, $\beta = ||a_j||^2_2$ and $\gamma = (\alpha^2 + \beta^2)^{\frac{1}{2}}$
+
+The matrices given by $V^{(k)}$ are called rotation matrices and $z$ is not dependent of dimension of $A$.
+
+Describe one sided Jacobi with math notations from Dr Rajs paper:
+\subsection{Block Householder Jacobi}
+For $A \in \mathbb{R}^{m \times n}$ where $m >> n$, a common practice is to reduce the problem complexity by applying initial orthogonal factorization on $A$ followed by one-sided Jacobi method. Given $A$ we apply the following orthogonal facotirzation given by $A = QR$, where $Q \in \mathbb{R}^{m \times n}$ is an orthogonal matrix and $R \in \mathbb{R}^{n \times n}$ is an upper triangular matrix. Next, One-sided Jacobi SVD algorithm is applied on $R$. The Block Householder- Jacobi SVD algorithm is presented below:
+Step 1: Factorize A by $A = QR$ where $Q \in \mathbb{R}^{m \times n}$ with orthonormal columns and $R \in \mathbb{R}^{n \times n}$ is upper triangular. \\
+Step 2: Determine SVD of the upper triangular matrix using One-sided Jacobi algorithm.
+\begin{equation}
+R = \hat{U}\left[ \begin{array}{c}
+\hat{S} \\
+\text{0}\\
+\end{array} \right]
+V^T
+\end{equation}
+where $\hat{U} \in \mathbb{R}{n \times p}$ and $V \in \mathbb{R}{n \times p}$ orthogonal matrices and $\hat{S} =$ diag$(\sigma_i)$ is a diagonal matrix containing $p$ non-zero singular values of $A$. \\
+Step 3: Compute $U = Q\hat{U}$. Left singular vectors of $A$ are given by $u_i$ where $u_i$ are columns of $U$. 
+\subsection{Two-sided JRS Algorithm}
+\subsection{One-sided JRS Algorithm}
+\subsection{Group JRS Algorithm}
+ 
 \cite{rajasekaran2006novel}
 
 This paper has done same parallel implementation:~\cite{soliman2008memory}.
