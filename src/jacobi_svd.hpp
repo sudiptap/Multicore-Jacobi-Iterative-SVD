@@ -228,9 +228,9 @@ class SVDecomposer {
       cout << "Number of updates                   = " << update_count << endl;
       size_t bad_A = all_orthogonalized(A, S, tolerance);
       cout << "Number of non-orthogonal pairs in A = " << bad_A << endl;
-      size_t bad_Q = all_orthogonalized(Q, tolerance);
-      cout << "Number of non-orthogonal pairs in Q = " << bad_Q << endl;
-      if (bad_A + bad_Q) cout << "!!!! SOME ERROR !!!!!" << endl;
+      //size_t bad_Q = all_orthogonalized(Q, tolerance);
+      //cout << "Number of non-orthogonal pairs in Q = " << bad_Q << endl;
+      if (bad_A) cout << "!!!! SOME ERROR !!!!!" << endl;
 
       /* 
        * Orthogonalization complete. Compute singular values.
