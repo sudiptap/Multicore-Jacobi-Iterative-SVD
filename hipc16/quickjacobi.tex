@@ -92,7 +92,7 @@ Singular Value Decomposition (SVD) is a fundamental computational problem in lin
 
 SVD takes as input a matrix $A \in \mathbb{F}^{m \times n}$ where $\mathbb{F}$ could be the field of real ($\mathbb{R}$) or complex ($\mathbb{C}$) numbers and outputs three matrices $U, S, V$ such that $A = USV^T$, where $U \in \mathbb{F}^{m \times m}$, $V \in \mathbb{F}^{n \times n}$ are orthogonal matrices (i.e. $U^TU = I_m$, $V^TV = I_n$) and $S \in \mathbb{R}^{m \times n}$ is a diagonal matrix. If $S = diag(\sigma_1, \sigma_2,......\sigma_{\min\{m,n\}})$, then the diagonal elements $\sigma_i$s are called the singular values of $A$. The columns of $U$ and $V$ are referred to as the left and right singular vectors respectively. Without loss of generality, we assume that $m \ge n$. 
 
-There are various methods of computing the SVD~\cite{golub2012matrix}. The most commonly used algorithms for dense matrices, which we consider in this paper, can be classified as \emph{QR-based} and \emph{Jacobi-based}.
+There are various methods of computing the SVD~\cite{golub2012matrix}. The most commonly used algorithms for dense matrices, which we consider in this paper, can be classified as \emph{QR-based} and \emph{Jacobi-based}. The QR-based algorithms work in two stages. In the first stage the input matrix is converted to a band matrix (bidiagonal, tridiagonal and so on) using factorizations such as Cholesky, LU and QR. In the final stage the band matrix is converted to diagonal form 
 
 
 \subsection{Two-sided Jacobi Algorithm}
