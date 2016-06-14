@@ -14,6 +14,7 @@ void music(int *top, int *bot, int **newtop, int **newbot, int m);
 unsigned long CyclicOneJacobi(double ***A, int m, int n, double eps, double tol, double param);
 unsigned long IndependentOneJacobi(double ***A, int m, int n, double eps, double tol);
 unsigned long RandomOneJacobi(double ***A, int m, int n, double eps, double tol, double randParam);
+unsigned long SortedOneJacobi(double ***A, int m, int n, double eps, double tol, double randParam);
 unsigned long BlockRandomOneJacobi(double ***A, int m, int n, double eps, double tol, double randParam);
 unsigned long StrumpenJacobi(double ***A, int m, int n, double eps, double tol, double randParam, int R);
 unsigned long StrumpenRelaxationJacobi(double ***A, int m, int n, double eps, double tol, double randParam, int R);
