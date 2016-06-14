@@ -59,6 +59,8 @@ int main(int argc, char **argv) {
 
   if (!n_given) params.n = params.m;
 
+  omp_set_num_threads(params.num_threads);
+
   gsl_matrix* A = gsl_matrix_alloc(params.m, params.n); 
   if (fname == "") {
     for(size_t i=0; i < A->size1; i++){

@@ -269,6 +269,16 @@ class SVDecomposer {
         log << gsl_vector_get(S, i) << endl;
       }
 
+      double a = gsl_vector_get(S, 0);
+      for (size_t i=1; i<S->size; ++i) {
+        double b = gsl_vector_get(S, i);        
+        if (a < b) {
+          cout << "!!!! ERROR !!!! S is not sorted: S[" << i-1 << "]="<< a << ",S[" << i << "]=" << b << endl;
+          break;
+        }
+        a = b;
+      }
+
       log.close();
       double elapsed = end-begin;
       struct rusage usage;
