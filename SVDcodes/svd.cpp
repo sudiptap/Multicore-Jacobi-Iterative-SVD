@@ -574,7 +574,7 @@ unsigned long RandomJacobiJRSTopK(double ***A, int n, double eps,  double tol, d
 			for(size_t i=0; i<(indices.size()/k); ++i)
 			{
 				p = get<0>(indices[i]);
-		                q = get<0>(indices[i]);
+		                q = get<1>(indices[i]);
 				rowRot(A, n, p, q, c[p-1][q-1], s[p-1][q-1]);
 				colRot(A, n, p, q, c[p-1][q-1], s[p-1][q-1]);
 			}
@@ -726,7 +726,7 @@ unsigned long BlockRandomJacobi(double ***A, int n, double eps, double tol, doub
 //group JRS parallel + sorted
 unsigned long BlockRandomJacobiGroupJRSSorted(double ***A, int n, double eps, double tol, double randParam)
 {
-	int p, q;
+	int p, q; int idx; int m = n;
 	unsigned long nSweeps = 0;
 	double offA = calcOffA(*A, n);
 
@@ -752,77 +752,53 @@ unsigned long BlockRandomJacobiGroupJRSSorted(double ***A, int n, double eps, do
 
 	int *temptop;
 	int *tempbot;
-
+	size_t pivot_count = m*(m-1)/2;
+	vector<pivot> indices(pivot_count);
 		
 	while(offA > eps)
 	{
-		for(int k=1; k<=n/2; k++)
-		{
-			top[k-1] = 2*k-1;
-			bot[k-1] = 2*k;
-		}
-		for(int b=1; b<=blocks; b++)
-		{
-			for(int g=1; g<=setsPerBlock; g++)
-			{
-				for(int k=1; k<=n/2; k++)
-				{
-					p = min(top[k-1], bot[k-1]);
-					q = max(top[k-1], bot[k-1]);
-				
-					pa[(g-1)*n/2+k-1] = p;
-					qa[(g-1)*n/2+k-1] = q;
-					RandJacobiCS((*A)[p-1][q-1], (*A)[p-1][p-1], (*A)[q-1][q-1], c[p-1][q-1], s[p-1][q-1], randParam, tol);
-				}
-				music(top, bot, &newtop, &newbot, n/2);
-				
-				temptop = top;
-				tempbot = bot;
-				top = newtop;
-				bot = newbot;
-				newtop = temptop;
-				newbot = tempbot;
-			}
-
-			for(int g=1; g<=ps; g++)
-			{			
-				p = pa[g-1];
-				q = qa[g-1];
-				rowRot(A, n, p, q, c[p-1][q-1], s[p-1][q-1]);
-				colRot(A, n, p, q, c[p-1][q-1], s[p-1][q-1]);
-				
-			}
-		}	
 		
-		for(int g=1; g<=restSets; g++)
+		
+		idx = 0;  
+		for(p = 1; p <= m -1; p++)
 		{
-			for(int k=1; k<=n/2; k++)
+			for(q = p + 1; q <= m; q++)
 			{
-				p = min(top[k-1], bot[k-1]);
-				q = max(top[k-1], bot[k-1]);
-				pa[(g-1)*n/2+k-1] = p;
-				qa[(g-1)*n/2+k-1] = q;
+				double Apq = (*A)[p-1][q-1];
+                                indices[idx++] = make_tuple(p, q, Apq);
+                        }
+                }
+                std::sort(indices.begin(), indices.begin()+idx, sort_desc);	
+		size_t indx_sz = indices.size();
+		vector<int> visited(n);
+		vector<pivot> ind_pivots(n/2);
+		while(indx_sz>0){
+			size_t pivot_used = 0;
+			fill_n(begin(visited),n,0);
+			for(long idx=0; idx<indx_sz; ){
+				size_t j = get<0>(indices[idx]);
+				size_t k = get<1>(indices[idx]);
+				if(!visited[j] && !visited[k]){
+					visited[j] = visited[k] = 1;
+					ind_pivots[pivot_used++] = indices[idx];
+					indices[idx] = indices[--indx_sz];
+				}else{
+					idx++;
+				}
+			}
+			for(size_t idx=0; idx< pivot_used; idx++){
+				size_t p = get<0>(ind_pivots[idx]);
+              			size_t q = get<1>(ind_pivots[idx]);
 				RandJacobiCS((*A)[p-1][q-1], (*A)[p-1][p-1], (*A)[q-1][q-1], c[p-1][q-1], s[p-1][q-1], randParam, tol);
 			}
-			music(top, bot, &newtop, &newbot, n/2);
-				
-			temptop = top;
-			tempbot = bot;
-			top = newtop;
-			bot = newbot;
-			newtop = temptop;
-			newbot = tempbot;
+			for(size_t i=0; i<(pivot_used); ++i)
+			{
+				p = get<0>(ind_pivots[i]);
+		                q = get<1>(ind_pivots[i]);
+				rowRot(A, n, p, q, c[p-1][q-1], s[p-1][q-1]);
+				colRot(A, n, p, q, c[p-1][q-1], s[p-1][q-1]);
+			}
 		}
-
-		for(int g=1; g<=restSets*n/2; g++)
-		{			
-			p = pa[g-1];
-			q = qa[g-1];
-			rowRot(A, n, p, q, c[p-1][q-1], s[p-1][q-1]);
-			colRot(A, n, p, q, c[p-1][q-1], s[p-1][q-1]);
-				
-		}
-		
 		nSweeps ++;
 		printf("%s %ld \n", "Current sweeps: ", nSweeps);
 		if(nSweeps == MAXSWEEPS)
@@ -1057,7 +1033,7 @@ unsigned long CyclicOneJacobiSorted(double ***A, int m, int n, double eps, doubl
 			{
 				double c, s;
 				p = get<0>(indices[i]);
-                        	q = get<0>(indices[i]);
+                        	q = get<1>(indices[i]);
 				double App = vectornorm(*A, p, n);
 				double Aqq = vectornorm(*A, q, n);
 				double Apq = dotproduct(*A, p, q, n);
@@ -1105,7 +1081,7 @@ unsigned long CyclicOneJacobiSortedTopK(double ***A, int m, int n, double eps, d
 			{
 				double c, s;
 				p = get<0>(indices[i]);
-                        	q = get<0>(indices[i]);
+                        	q = get<1>(indices[i]);
 				double App = vectornorm(*A, p, n);
 				double Aqq = vectornorm(*A, q, n);
 				double Apq = dotproduct(*A, p, q, n);
@@ -1217,7 +1193,7 @@ unsigned long SortedOneJacobi(double ***A, int m, int n, double eps, double tol,
 		for(size_t i=0; i<idx; ++i)
 		{
                         p = get<0>(indices[i]);
-                        q = get<0>(indices[i]);
+                        q = get<1>(indices[i]);
 			double App = vectornorm(*A, p, n);
 			double Aqq = vectornorm(*A, q, n);
 			double Apq = dotproduct(*A, p, q, n);
@@ -1288,7 +1264,7 @@ unsigned long SortedOneJacobiTopK(double ***A, int m, int n, double eps, double 
 		for(size_t i=0; i<indices.size()/k; ++i)
 		{
                         p = get<0>(indices[i]);
-                        q = get<0>(indices[i]);
+                        q = get<1>(indices[i]);
 			double App = vectornorm(*A, p, n);
 			double Aqq = vectornorm(*A, q, n);
 			double Apq = dotproduct(*A, p, q, n);
