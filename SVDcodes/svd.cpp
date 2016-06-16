@@ -726,9 +726,9 @@ unsigned long BlockRandomJacobi(double ***A, int n, double eps, double tol, doub
 //group JRS parallel + sorted
 unsigned long BlockRandomJacobiGroupJRSSorted(double ***A, int n, double eps, double tol, double randParam)
 {
-	int p, q;
+	int p, q; int idx; int m = n;
 	unsigned long nSweeps = 0;
-	/*double offA = calcOffA(*A, n);
+	double offA = calcOffA(*A, n);
 
 	double **c = new double*[n];
 	double **s = new double*[n];
@@ -752,7 +752,8 @@ unsigned long BlockRandomJacobiGroupJRSSorted(double ***A, int n, double eps, do
 
 	int *temptop;
 	int *tempbot;
-
+	size_t pivot_count = m*(m-1)/2;
+	vector<pivot> indices(pivot_count);
 		
 	while(offA > eps)
 	{
@@ -769,11 +770,11 @@ unsigned long BlockRandomJacobiGroupJRSSorted(double ***A, int n, double eps, do
                 }
                 std::sort(indices.begin(), indices.begin()+idx, sort_desc);	
 		size_t indx_sz = indices.size();
-		vector<pivot> visited(n);
+		vector<int> visited(n);
 		vector<pivot> ind_pivots(n/2);
 		while(indx_sz>0){
 			size_t pivot_used = 0;
-			fill_n(begin(visited),N,0);
+			fill_n(begin(visited),n,0);
 			for(long idx=0; idx<indx_sz; ){
 				size_t j = get<0>(indices[idx]);
 				size_t k = get<1>(indices[idx]);
@@ -819,7 +820,7 @@ unsigned long BlockRandomJacobiGroupJRSSorted(double ***A, int n, double eps, do
 	delete[] newbot;
 
 	delete[] pa;
-	delete[] qa;*/
+	delete[] qa;
 
 	return nSweeps;
 }
