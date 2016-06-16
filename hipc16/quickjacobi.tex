@@ -92,139 +92,30 @@ SVD; Jacobi iterations; JRS; parallel algorithms
 
 
 \section{Introduction}
+
 Singular Value Decomposition (SVD) is a fundamental computational problem in linear algebra and it has application in various computational science and engineering areas. For example, it is widely used in areas such as statistics where it is directly related to principal component analysis, in signal processing and pattern recognition as an essential filtering tool, and in control systems. Recently, it is used as one of the fundamental steps in many machine learning applications such as least square regressions, information retrieval and so on. With the advent of BigData, it has become essential to process data matrices with thousands of rows and columns in real time. The SVD is one of the data reduction techniques. Hence, there is a strong need for efficient sequential and parallel algorithms for the SVD.
 
 SVD takes as input a matrix $A \in \mathbb{F}^{m \times n}$ where $\mathbb{F}$ could be the field of real ($\mathbb{R}$) or complex ($\mathbb{C}$) numbers and outputs three matrices $U, S, V$ such that $A = USV^T$, where $U \in \mathbb{F}^{m \times m}$, $V \in \mathbb{F}^{n \times n}$ are orthogonal matrices (i.e. $U^TU = I_m$, $V^TV = I_n$) and $S \in \mathbb{R}^{m \times n}$ is a diagonal matrix. If $S = diag(\sigma_1, \sigma_2,......\sigma_{\min\{m,n\}})$, then the diagonal elements $\sigma_i$s are called the singular values of $A$. The columns of $U$ and $V$ are referred to as the left and right singular vectors respectively. Without loss of generality, we assume that $m \ge n$. We also assume that the input matrices are real, the algorithms in this paper can be easily extended to complex matrices. 
 
 There are various methods of computing the SVD~\cite{golub2012matrix}. The most commonly used algorithms for dense matrices, which we consider in this paper, can be classified as \emph{QR-based} and \emph{Jacobi-based}. The QR-based algorithms work in two stages. In the first stage the input matrix is converted to a band matrix (bidiagonal, tridiagonal and so on) using factorizations such as Cholesky, LU and QR. In the final stage the band matrix is converted to a diagonal form to obtain the singular values. The singular vectors are also computed accordingly. In the sequential setting, the QR based methods are more frequently used as they are faster than the sequential Jacobi based methods. However, Jacobi-based methods are known to be more accurate~\cite{demmel1992jacobi} and also have a higher degree of potential parallelism. Though there are parallel implementations of QR based algorithms in out-of-core setting~\cite{grimes1987solution, grimes1988solution} as well as in homogeneous multi-core setting~\cite{haidar2013improved}, our focus is on designing faster parallel implementations of the Jacobi based algorithms.
 
-There are two different variations of the Jacobi based algorithms, \emph{one-sided} and \emph{two-sided}. The two sided Jacobi algorithms are applicable only when the input matrix is symmetric and are also computationally more intensive. Hence the one-sided Jacobi algorithms are used more frequently. The basic idea of the one-sided Jacobi algorithms proposed by Hestenes~\cite{hestenes1958inversion} is as follows. Using a series of plane rotation matrices $V_1, V_2, \ldots, V_k$ the input matrix $A$ is first converted to a matrix $B=AV_1V_2\ldots V_k$ such that the columns of $B$ are orthogonal. The decomposition $B = US$ gives us the required left singular vectors and the singular values respectively, where $U$ is obtained by normalizing the columns of $B$ (keeping null columns unchanged) and the norm of $i$th column of $B$ gives $S_{ii}$ of the diagonal matrix $S$. The right singular vectors are the columns of $V=V_1V_2,\ldots,V_k$. As the rotation matrices $V_i$s are orthogonal, $V$ is also orthogonal and hence $AV = B = US$ implies $A = USV^T$.
+There are two different variations of the Jacobi based algorithms, \emph{one-sided} and \emph{two-sided}. The two sided Jacobi algorithms are applicable only when $A$ is symmetric and $m=n$. The basic idea of a two sided Jacobi algorithm is as follows. Using a series of plane rotation matrices $U_1, U_2, \ldots, U_t$, the symmetric matrix $A$ is converted a diagonal matrix $S = U_t \ldots U_2 U_1 A U^T_1 U^T_2 \ldots U^T_t$. The left and right singular vectors are given by $U=V=U_1U_2,\ldots,U_t$. The basic idea of the one-sided Jacobi algorithms proposed by Hestenes~\cite{hestenes1958inversion} is as follows. Using a series of plane rotation matrices $V_1, V_2, \ldots, V_t$ the input matrix $A$ is first converted to a matrix $B=AV_1V_2\ldots V_t$ such that the columns of $B$ are orthogonal. The decomposition $B = US$ gives us the required left singular vectors and the singular values respectively, where $U$ is obtained by normalizing the columns of $B$ (keeping null columns unchanged) and the norm of $i$th column of $B$ gives $S_{ii}$ of the diagonal matrix $S$. The right singular vectors are the columns of $V=V_1V_2,\ldots,V_t$. As the rotation matrices $V_i$s are orthogonal, $V$ is also orthogonal and hence $AV = B = US$ implies $A = USV^T$.
 
-\begin{comment}
-\subsection{Two-sided Jacobi Algorithm}
+Each of the plane rotation matrices $V_i$ corresponds to a pair of columns $(j,k)$ where the rotation is on the plane going through the $j$th and the $k$th axes. We assume $j<k$ and call such a pair $(j,k)$ a \emph{pivot}.  In the traditional Jacobi algorithms the rotations are divided among \emph{sweeps}, in each sweep all possible ${n \choose 2}$ pivots are used. For the one-sided Jacobi, the rotation using pivot $(j,k)$ annihilates the off diagonal entries $a_{jk}, a_{kj}$ to $0$. However, either of $a_{jk}, a_{kj}$ may again become non-orthogonal due to some later pivot involving $j,k$ in the same sweep. Hence multiple sweeps are required. As a test for convergence, we could check if the Frobenius norm of the off-diagonal entries of $A$ fell below a certain tolerance. For the two-sided Jacobi, pivoting $(j,k)$ ensures that the columns $a_j,a_k$ become mutually orthogonal after the rotation. Here too, multiple sweeps may be required as the columns may again become non-orthogonal due to some later pivot. For convergence, we could count how many times in any sweep the dot-product $a_j^{T}a_k$ fell below a certain tolerance and the algorithm is terminated when the count reached $n(n-1)/2$. It is believed that the number $S$ of sweeps needed for the convergence of the sequential one-sided and two-sided Jacobi algorithm is $O(\log n)$~\cite{golub2012matrix}.  
 
-\par Among all algorithms for finding SVD Jacobi iteration based algorithms are most widely used in parallel settings since they are easier to parallelize than others. There are two types of Jacobi algorithms for SVD, namely Two-sided Jacobi SVD algorithm and One-sided Jacobi SVD algorithm. Two-sided Jacobi SVD algorithm is applicable to symmetric matrices only. It applies a series of \textit{Jacobi Rotations} on input matrix $A$ to diagonalize it. 
-\[
-A_{k+1} = U_kA_kU_k^T, k =1,2,......
-\]   
-where $U_k = U_k(i,j,\phi^k_{ij})$ represents a rotation of $(i,j)$-plane. 
-\begin{gather}
-u_{ii}^k = u_{jj}^k = c^k = \text{cos}(\phi^k_{ij}) \\
-u_{ij}^k = -u_{ji}^k = s^k = \text{sin}(\phi^k_{ij}) 
-\end{gather}
+It turns out that order in which the pivots are applied in a sweep has a significant effect on the number of sweeps required for convergence. Mainly two different orders are used. In the classic Jacobi algorithm~\cite{golub2012matrix}, each rotation chooses the pivot $(j,k)$ with maximum absolute value of $a_{jk}$ in the two-sided Jacobi and the maximum value of the dot-product $a_j^{T}a_k$ in the one-sided Jacobi. However, searching for this element is computationally expensive. Cyclic Jacobi algorithms trade off this computation with slower convergence and uses the pivots in the order $(1,2), (1,3), \ldots, (1,n), (2,3), (2,4), \ldots, (2,n), \ldots (n-1,n)$.  It can be shown that after each sweep in one-sided Jacobi the Frobenius norm of off-diagonal entries reduces monotonically and hence the algorithm converges. For the two-sided Jacobi the sum of dot-products of all pairs of columns reduces in each sweep.
 
-$\phi^k$ is chosen such that 
-\begin{gather}
-b^{k+1}_{ij} = b^{k+1}_{ji} = 0,\\
-\text{or} \thinspace \text{tan}(2\phi^k_{ij}) = \frac{2b^k_{ij}}{b^k_{ii} - b^k_{jj}} \\
-\text{and} \thinspace\text{where} |\phi^k_{ij}| \leq \frac{1}{4}\pi 
-\end{gather}
-$c^k$ is computed by 
-\begin{gather}
-c^k = \frac{1}{\sqrt{1+t^2_k}} \thinspace \text{and} s^k = c^kt^k \\
-\text{where} t^k \text{is the smaller root (in magnitude) of the quadratic equation given by} \\
-{t^k}^2 + 2\alpha^kt^k - 1 = 0, \alpha^k = \text{cot}(2\phi^k_{ij}) \\
-\text{hence}, t^k = \frac{sign(\alpha^k)}{|\alpha^k| + \sqrt{1+{\alpha^k}^2}}
-\end{gather}
-$B_{k+1}$ is identical to $B_k$ other than the rows and columns $i$ and $j$ and the modified elements are given by 
-\begin{gather}
-b_{ii}^{k+1} = b_{ii}^k + t^{k}b_{ij}^k \\
-b_{jj}^{k+1} = b_jj^k - t^kb_{ij}^k \\
-b_{ix}^{k+1} = c^{k}b_{ix}^k + s^{k}_{jr} \\
-b_{jx}^{k+1} = -s_kb^k_{ix} + c_kb^k_{jx} \\
-x \neq i,j
-\end{gather}
-The above algorithm ensures that with every rotation $A_k$ approaches the diagonal matrix $S$ = diag$(\sigma_1, \sigma_2,....\sigma_n)$ and $(U_k......U_2U_1)^T$ approaches a matrix whose $j-$th column is the eigenvector corresponding to $\sigma_j$. 
-\cite{luk1989proof} shows that each sweepcauses the off-diagonal norm to decrase and evetually the algorithm converges. According to the original Jacobi scheme one should search for the largest off-diagonal element to eliminate at every rotation. However, this scheme is extremely time consuming in practice. Hence, a common scheme used is to choose elements $(i,j)$ to be annihilated in cyclic order $(1,2), (1,3), (1,4),.....(1,n),(2,3),......(2,n),......,(n-1,n)$. This is known as cyclic jacobi algorithm. \cite{forsythe1960cyclic, schonhage1961konvergenz, wilkinson1962note} show that cyclic Jacobi algorithm has a quadratic convergence rate and argues that convergence ususally occurs within 6 to 10 sweeps or $3n^2$ to $5n^2$ Jacobi rotations.
+Many pivots in a sweep are independent of each other and hence the corresponding rotations can be applied in parallel. In fact the sweeps can be divided into $(n-1)$ \emph{subsweeps} each containing $n/2$ independent pivots and all rotations in a subsweep can be applied in parallel. There are many ways of dividing the pivots in a subsweep. A simple round-robin based ordering is given in~\cite{golub2012matrix}. However, it turns out that more clever ordering improves performance by reducing the total number of sweeps required for convergence~\cite{becka2002dynamic}.
 
-\subsection{One-sided Jacobi Algorithm}
-
-
-\par A more general and more widely used algorithm is One-Sided Jacobi SVD algorithm that deals with any matrix. One-Side Jacobi SVD algorithm finds an orthogonal matrix $V \in \mathbb{R}^{n \times n}$, such that $B = (b_1, b_2,.......,b_n) = AV$ where $B \in \mathbb{R}^{m \times n}$ is an orthogonal matrix. The above statement implies that:
-\[
-b_i^Tb_j = \sigma_i^2\delta_{ij}
-\]
-where
-\[
-\delta_{ij}= 
-\begin{cases}
-    0,& \text{for }i\neq j\\
-    1,& \text{for }i = j\\
-\end{cases}
-\]
-
-The quantities $\sigma_i$ are called \textit{Singular Values} of matrix $A$. $B$ can be written as $B = US$ where $U = (u_1, u_2,....,u_k)$such that $u_j = \frac{b_j}{\sigma_j}$ for $\sigma_j \neq 0$ and $U^TU = I \in \mathbb{R}^{n \times n}$. Hence we can now write $B = AV$ as $US = AV$ or using properties of orthogonality $A = USV^T$. If some of the $\sigma_j$s are zeros singular values, the corresponding columns of $U$ are set to null vectors. The first $k$ singular values are always chosen to be non-zero causing the matrix $U^TU$ to be unit matrix of order $k$ augmented to order n with zeros. This is written as follows :
-
-\begin{equation}
-S = \left( \begin{array}{cc}
-\textbf{1}_k & \hfill\\
-\hfill & \textbf{0}_{n-k}\\
-\end{array} \right)
-\end{equation} 
-
-The matrix $V$ used for orthogonalization of $A$ is a product of matrices indexed by $V^{(k)}$.
-\[
-V = \prod_{k=1}^{z}V^{(k)}
-\]
-
-$V$ is constructed in such a way that
-\begin{equation}
-(a_i, a_j) \left[ \begin{array}{cc}
-c & -s \\
-s & c \\
-\end{array} \right]
-= (a_i^{k+1}, a_j^{k+1}) 
-\end{equation}
-, $i < j$ and $||a_i^{k+1}||_2 > ||a_j^{k+1}||_2$,
-here $a_i$ is the $i-$th column of $A$. This is achieved by choosing 
-
-$c = [\frac{\beta + \gamma}{2\gamma}]^{\frac{1}{2}}$ and $s = [\frac{\alpha}{2\gamma c}]$,
-$s = [\frac{\gamma - \beta}{2\gamma}]^{\frac{1}{2}}$ and $c = [\frac{\alpha}{2\gamma s}]$
-
-where $\alpha = 2a_i^Ta_j$, $\beta = ||a_j||^2_2$ and $\gamma = (\alpha^2 + \beta^2)^{\frac{1}{2}}$
-
-The matrices given by $V^{(k)}$ are called rotation matrices and $z$ is not dependent of dimension of $A$.
-
-
-\subsection{Block Householder Jacobi}
-For $A \in \mathbb{R}^{m \times n}$ where $m >> n$, a common practice is to reduce the problem complexity by applying initial orthogonal factorization on $A$ followed by one-sided Jacobi method. Given $A$ we apply the following orthogonal facotirzation given by $A = QR$, where $Q \in \mathbb{R}^{m \times n}$ is an orthogonal matrix and $R \in \mathbb{R}^{n \times n}$ is an upper triangular matrix. Next, One-sided Jacobi SVD algorithm is applied on $R$. The Block Householder- Jacobi SVD algorithm is presented below:
-Step 1: Factorize A by $A = QR$ where $Q \in \mathbb{R}^{m \times n}$ with orthonormal columns and $R \in \mathbb{R}^{n \times n}$ is upper triangular. \\
-Step 2: Determine SVD of the upper triangular matrix using One-sided Jacobi algorithm.
-\begin{equation}
-R = \hat{U}\left[ \begin{array}{c}
-\hat{S} \\
-\text{0}\\
-\end{array} \right]
-V^T
-\end{equation}
-where $\hat{U} \in \mathbb{R}{n \times p}$ and $V \in \mathbb{R}{n \times p}$ orthogonal matrices and $\hat{S} =$ diag$(\sigma_i)$ is a diagonal matrix containing $p$ non-zero singular values of $A$. \\
-Step 3: Compute $U = Q\hat{U}$. Left singular vectors of $A$ are given by $u_i$ where $u_i$ are columns of $U$. 
-\end{comment}
-
-Each of the plane rotation matrix $V_i$ corresponds to a pair of columns $(j,k)$ where the rotation is on the plane going through the $j$th and the $k$th axes. We assume $j<k$ and call such a pair $(j,k)$ a \emph{pivot}.  In the traditional Jacobi algorithms the rotations are divided among \emph{sweeps}, in each sweep all possible ${n \choose 2}$ pivots are used. The rotation using pivot $(j,k)$ ensures that the columns $j,k$ become mutually orthogonal after the rotation. However, the columns may again become non-orthogonal due to some later pivot involving one of the columns $j,k$ in the same sweep. Hence multiple sweeps are required. As a test for convergence, we could count how many times in any sweep the dot-product $a_j^{T}a_k$ fell below a certain tolerance and the algorithm is terminated when the count reached $n(n-1)/2$. It is believed that the number $S$ of sweeps needed for the convergence of the sequential Jacobi algorithm is $O(\log n)$~\cite{golub2012matrix}.  
-
-It turns out that order in which the pivots are applied in a sweep has significant effect on the number of sweeps used. Researchers have have used mainly two different orders. In the classic Jacobi algorithm~\cite{golub2012matrix}, each rotation chooses the pivot $(j,k)$ with maximum absolute value of $a_j^{T}a_k$. However, searching for this element is computationally expensive. Cyclic Jacobi algorithms trade off this computation with lesser convergence rate and uses the pivots in the order $(1,2), (1,3), \ldots, (1,n), (2,3), (2,4), \ldots, (2,n), \ldots (n-1,n)$.  It can be shown that after each sweep the sum of dot-products of all pair of columns reduces and hence the algorithm converges. 
-
- 
-computation is organized in sweeps such that in each sweep
-every off-diagonal element is zeroed once. Note that when an
-off-diagonal element is zeroed it may not continue to be zero
-when another off-diagonal element is zeroed. After each sweep,
-it can be shown that the norm of the off-diagonal elements
-decreases monotonically. Thus the Jacobi algorithms converge
 \subsection{Contributions}
 
-In this paper we introduce a novel algorithm for parallel computation of SVDs. This algorithm is a specific “relaxation” of the Jacobi iteration. We call this JRS (Jacobi Relaxation Scheme) iteration hereafter. This algorithm is nicely parallelizable, since it enables the computation of all the rotations of a sweep in parallel and the number of sweeps is reasonable. For the example of a 100×100 matrix, JRS iteration takes 47 sweeps. A variant of JRS takes only 12 sweeps.  We discuss the implementation of JRS iteration on various models of computing such as the mesh, the hypercube, and the PRAM. For example, on the CREW PRAM our algorithm has a run time of O(S log 2 n) (for an n × n matrix).
+In this paper introduce a novel algorithm for parallel computation of SVDs. This algorithm uses the idea of picking the pivots in the order of maximum absolute value of $a_{jk}$ in two-sided Jacobi and of $a_j^T a_k$ in one-sided Jacobi. However, to reduce the high computational cost of searching for the maximum before each rotation, the algorithm uses two relaxations. 1) Instead of searching for the maximum before each iteration, the pivots are sorted in descending values of $a_{jk}$ or $a_j^T a_k$ at the beginning of a sweep and the pivots are applied in this order. 2) To reduce the quadratic sorting time, only the top $1/k$th of the pivots are selected and they are applied in the sorted order. We call this JPS (Jacobi Pivot Sorting) scheme hereafter. Our contributions are as follows. Firstly we show using a simulation based technique~\cite{rajasekaran2008relaxation} that the JPS scheme significantly reduces the number of sweeps. Secondly we give a `real' implementation of our ideas in a one-sided Jacobi algorithm based on the code from Gnu Scientific Library. We also give a parallel implementation in the shared memory multicore setting. Finally we discuss the implementation of JPS scheme on various models of computing such as the mesh, the hypercube, and the PRAM.
+ 
 
-The remainder of the paper is organized as follows: In
-Section 2, we introduce the sequential Jacobi-SVD algorithm.
-Section 3 describes our new JRS iteration algorithm. In
-Section 4, we show experimental results. Section 5 discusses
-parallel implementations of our new algorithms. Finally, we
-provide some concluding remarks in Section 6
+The remainder of the paper is organized as follows: In Section~\ref{sec:prevwork}, we survey the previous work on Jacobi-SVD algorithm.  Section~\ref{sec:jps} describes our new JPS algorithm. In Section~\ref{sec:results}, we show experimental results. Section~\ref{sec:other} discusses parallel implementations of our new algorithms. Finally, we provide some concluding remarks in Section~\ref{sec:conclude}.
 
-\section{Previous Work}
-
+\section{Previous Related Work}
+\label{sec:prevwork}
 
 \cite{bevcka2013parallel, kudo2016parallel, becka2015parallel} introduced and implemented the idea of parallel one-sided block jacobi algorithm with dynamic ordering and variable blocking. Their approach, known as OSBJ method, accomplishes the parallel SVD in three stages namely, pre-processing, iteration and post processing. There are two types of pre-processing depending on the dimension of the matrix, namely QR-pre-processing and LQ pre-processing. During QR-pre-processing OSBJ decomposes input matrix $A = Q_1R$ where $A \in \mathbb{R}^{m \times n}$, orthonormal matrix $Q_1 \in \mathbb{R}^{m \times m}$ and upper triangular matrix $R \in \mathbb{R}^{n \times n}$. On the contrary, LQ-pre-processing decomposes input matrix $A = LQ_2$ where $L \in \mathbb{R}^{n \times n}$ is a lower triangular matrix and $Q_2 \in \mathbb{R^{n \times n}}$ is an orthogonal matrix. The $L$ or $R$ matrix in pre-processing stage is considered as input $A^0$ for the iteration stage.
 $A^0$ is partitioned into column blocks. Let, $A^{(r)}_i$ and $A^{(r)}_j$ are one such column block pair where $1 \leq i < j \leq l$ assuming we have $l$ such column blocks. Weight $\hat{w}^{r}_{ij} = \frac{||{A^{(r)}_i}^TA^{(r)}_j\textbf{e}||_2}{||\textbf{e}||_2}$, where $\textbf{e} = (1, 1, ....1)^T \in \mathbb{R}^{\frac{n}{l}}$.  $\hat{w}^{r}_{ij}$ serves as an approximate measure of inclination between $Im(A^{r}_i)$ and $Im(A^{r}_j)$. The column block pairs are ordered based on their mutual inclination and the most mutually inclined pair is chosen to be orthogonalized and those columns are excluded from the set for next iteration. The process is repeated until all the column blocks are used up. For each column block pair a $2 \times 2$ Gram matrix $G_s \in \mathbb{R}^{\frac{2n}{l} \times \frac{2n}{l}}$ is constructed as is given by $G_s = [A^{(r)}_{i_{r,s}},A^{(r)}_{j_{r,s}}]^T[A^{(r)}_{i_{r,s}},A^{(r)}_{j_{r,s}}]$ where $1 \leq s \leq \frac{l}{2}$. This gram matrix is them diagonalized as $G_s = V_sD_sV_s^T$ where $V_s$ is an orthogonal matrix and $D_s$ is a diagonal matrix. The column blocks for next iteration $A^{(r+1)}$ is computed by $[A^{(r+1)}_{i_{r,s}},A^{(r+1)}_{j_{r,s}}] = [A^{(r)}_{i_{r,s}},A^{(r)}_{j_{r,s}}]V_s$. Iteration process continues until all the columns are mutually orthogonal. 
@@ -235,7 +126,9 @@ This paper has done same parallel implementation:~\cite{soliman2008memory}.
 
 This paper seems to do some kind of sorting for~\cite{zhou1995parallel}.
 
-\section{Quick Pivoting}
+\section{JPS Algorithm}
+\label{sec:jps}
+
 Since any rotation in the two-sided Jacobi algorithm changes
 only the corresponding (two) rows and (two) columns, and
 771
@@ -297,12 +190,8 @@ as well, namely, one-sided and two-sided. We provide details
 on these two variants in the next subsections.
 
 
-\section{Parallel Implementation}
-Wherever Times is specified, Times Roman or Times New Roman may be used. If neither is available on your system, please use the font closest in appearance to Times. Avoid using bit-mapped fonts if possible. True-Type 1 or Open Type fonts are preferred. Please embed symbol fonts, as well, for math, etc.
-
-
-
 \section{Experimental Results}
+\label{sec:results}
 
 We implemented our algorithms and tested them for convergence. We had two different implementations. Using the strategy in~\cite{rajasekaran2008relaxation} we compared our algorithms with previous algorithms in terms of number of sweeps using a simulation on a serial computer. We also had an implementation based on the source code of the Jacobi based SVD algorithm in the GNU Scientific Library (GSL)~\cite{galassi1996gnu}.
 
@@ -398,7 +287,12 @@ We also implemented a `real' version of our algorithms. We changed the basic imp
 \caption{Performance of our parallel implementation}
 \end{figure*}
 
+\section{Implementation in Different Parallel Computing Models}
+\label{sec:other}
+
+
 \section{Conclusion}
+\label{sec:conclude}
 
 In this paper, we have proposed a novel algorithm (called
 JRS Iteration Algorithm) for computing SVDs. This algorithm
