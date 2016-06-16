@@ -18,6 +18,9 @@
 \usepackage{amssymb}
 \usepackage{filecontents}
 \usepackage{comment}
+\usepackage{url}
+\usepackage{balance}
+\usepackage{booktabs}
 
 % correct bad hyphenation here
 \hyphenation{op-tical net-works semi-conduc-tor}
@@ -198,9 +201,9 @@ where $\hat{U} \in \mathbb{R}{n \times p}$ and $V \in \mathbb{R}{n \times p}$ or
 Step 3: Compute $U = Q\hat{U}$. Left singular vectors of $A$ are given by $u_i$ where $u_i$ are columns of $U$. 
 \end{comment}
 
-Each of the plane rotation matrix $V_i$ corresponds to a pair of columns $(j,k)$ where the rotation is on the plane going through the $j$th and the $k$th axes. We assume $j<k$ and call such a pair $(j,k)$ a \emph{pivot}.  In the traditional Jacobi algorithms the rotations are divided among \emph{sweeps}, in each sweep all possible ${n \choose 2}$ pivots are used. The rotation using pivot $(j,k)$ ensures that the columns $j,k$ become mutually orthogonal after the rotation. However, the columns may again become non-orthogonal due to some later pivot involving one of the columns $j,k$ in the same sweep. Hence multiple sweeps are required. As a test for convergence, we could count how many times in any sweep the dot-product $a_j^{T}a_k$ fell below a certain tolerance and the algorithm is terminated when the count reached $n(n-1)/2$. It is believed that the number $S$ of sweeps needed for convergence of the sequential Jacobi algorithm is $O(\log n)$~\cite{golub2012matrix}.  
+Each of the plane rotation matrix $V_i$ corresponds to a pair of columns $(j,k)$ where the rotation is on the plane going through the $j$th and the $k$th axes. We assume $j<k$ and call such a pair $(j,k)$ a \emph{pivot}.  In the traditional Jacobi algorithms the rotations are divided among \emph{sweeps}, in each sweep all possible ${n \choose 2}$ pivots are used. The rotation using pivot $(j,k)$ ensures that the columns $j,k$ become mutually orthogonal after the rotation. However, the columns may again become non-orthogonal due to some later pivot involving one of the columns $j,k$ in the same sweep. Hence multiple sweeps are required. As a test for convergence, we could count how many times in any sweep the dot-product $a_j^{T}a_k$ fell below a certain tolerance and the algorithm is terminated when the count reached $n(n-1)/2$. It is believed that the number $S$ of sweeps needed for the convergence of the sequential Jacobi algorithm is $O(\log n)$~\cite{golub2012matrix}.  
 
-It turns out that order in which the pivots are applied in a sweep has significant effect on the number of sweeps used. Depending on the order of choosing the element to be zeroed, there are classic Jacobi and cyclic Jacobi algorithms. In the classic Jacobi algorithm~\cite{golub2012matrix}, each rotation chooses the pivot $(j,k)$ with maximum absolute value of $a_j^{T}a_k$. However, searching for this element is computationally expensive. Cyclic Jacobi algorithms trades off this computation with lesser convergence rate and uses the pivots in the order $(1,2), (1,3), \ldots, (1,n), (2,3), (2,4), \ldots, (2,n), \ldots (n-1,n)$.  It can be shown that after each sweep the sum of dot-products of all pair of columns reduces and hence the algorithm converges. 
+It turns out that order in which the pivots are applied in a sweep has significant effect on the number of sweeps used. Researchers have have used mainly two different orders. In the classic Jacobi algorithm~\cite{golub2012matrix}, each rotation chooses the pivot $(j,k)$ with maximum absolute value of $a_j^{T}a_k$. However, searching for this element is computationally expensive. Cyclic Jacobi algorithms trade off this computation with lesser convergence rate and uses the pivots in the order $(1,2), (1,3), \ldots, (1,n), (2,3), (2,4), \ldots, (2,n), \ldots (n-1,n)$.  It can be shown that after each sweep the sum of dot-products of all pair of columns reduces and hence the algorithm converges. 
 
  
 computation is organized in sweeps such that in each sweep
@@ -301,58 +304,87 @@ Wherever Times is specified, Times Roman or Times New Roman may be used. If neit
 
 \section{Experimental Results}
 
-We have implemented our JRS algorithms and tested them
-for convergence as well as performance in terms of the number
-of sweeps. They have been compared with the regular Jacobi
-algorithms as well as the algorithms of [11]. All the parallel
-computations were simulated on a serial machine. We provide
-the experimental results in this subsection.
-In this experiment, we have compared the number of
-sweeps taken by the different Jacobi approaches. We generated
-randomly several matrices of different sizes, including 10 ×
-10, 50×50, 100×100, 200×200, 500×500, and 1000×1000.
-The elements of the matrices were generated randomly to have a
-value in the interval [1, 10]. For each matrix size, we generated
-10 matrices and for each algorithm we took the average number
-of sweeps. The convergence condition employed was 10 −15
-times the squared Frobenius norm of the matrix, which was the
-same as in [11].
-The results are shown in Tables 1 and 2 for two-sided Jacobi
-and one-sided Jacobi algorithms, respectively. For two-sided
-Jacobi, we used symmetrical matrices; for one-sided Jacobi, we
-generated unsymmetrical matrices. In these tables, Independent
-Jacobi refers to the Jacobi algorithm where all the rotations in
-a sweep are done independently and in parallel. This is one of
-the algorithms employed in [11]. The values of the parameter λ
-used in JRS and Group JRS algorithms for matrices of different
-sizes are explained in the next subsection. For the Group JRS
-√ , which is
-algorithm the number of groups used is g = n−1
-n
-√
-n √
-O( n). This number is used such
-that
-n
-processors
-are
-2
-√
-used to run in parallel in time O( n) to compute the Jacobi
-rotations.
-From Tables 1 and 2, we see that the number of sweeps taken
-by the JRS Parallel and Group JRS algorithms is significantly
-less than that of Independent Jacobi of [11]. Also the number
-of sweeps taken by the JRS-based algorithms is within a
-reasonable multiple of that of the sequential cyclic Jacobi
-algorithm.
+We implemented our algorithms and tested them for convergence. We had two different implementations. Using the strategy in~\cite{rajasekaran2008relaxation} we compared our algorithms with previous algorithms in terms of number of sweeps using a simulation on a serial computer. We also had an implementation based on the source code of the Jacobi based SVD algorithm in the GNU Scientific Library (GSL)~\cite{galassi1996gnu}.
 
-haha
-%\begin{figure}[tb]
-%\centering
-%\includegraphics[width=0.48\textwidth]{updates}
-%\caption{Performance of our parallel implementation}
-%\end{figure}
+\subsection{Simulation on a sequential computer}
+
+We added a simulation of our algorithm in the list of algorithms simulated in~\cite{rajasekaran2008relaxation} and compared the performances in terms of the number
+of sweeps. For the two-sided algorithms, we generated random symmetric matrices for different values of $n$: $500, 750, 1000, 1250, 1500, 1750, 2000$. For the one-sided algorithms we generated random matrices of sizes $500 \times 300, 750 \times 500, 1000 \times 700, 1250 \times 900, 1500 \times 1300, 1750 \times 1500, 2000 \times 1800$.  The elements of the matrices were chosen uniformly randomly from the range $[1,10]$. For each matrix sizes and the algorithms that we considered, we generated $5$ random matrices and reported the average number of sweeps used by the algorithms. The convergence condition employed was $10^{-15}$ times the squared Frobenius norm of the input matrix.
+
+The sequential algorithms we experimented with are as follows. (1) \emph{Cyclic}:  a baseline Jacobi implementation using cyclic ordering of the pivots, (2) \emph{JRS}: an implementation of the relaxation scheme used in~\cite{rajasekaran2008relaxation}, (3) \emph{TopKFrac}: our algorithm, (4) \emph{TopKFracJRS}: an implementation using the ideas of both JRS and our algorithm. We also experimented with the following parallel algorithms. (5) \emph{ParJRS}, parallel implementation of JRS~\cite{rajasekaran2008relaxation}, (6) \emph{GrpJRS}, an improved parallel implementation of JRS~\cite{rajasekaran2008relaxation}, (7) \emph{ParTopKFrac}: a parallel implementation of our algorithm, (8) \emph{ParTopKFracJRS}: a parallel implementation using the ideas of both JRS and our algorithm, (9)   \emph{GrpTopKFrac}: a parallel implementation of our algorithm using the grouping of independent pivots, (10) \emph{GrpTopKFracJRS}: a parallel implementation using the ideas of both Group JRS and our algorithm.
+
+For the JRS algorithms we used the value of the relxation parameters as recommended in~\cite{rajasekaran2008relaxation}, i.e., for two-sided Jacobi $\lambda = 1- 2.9267n^{-0.4284}$ and for one-sided Jacobi $\lambda = 1 - 2.2919 n^{-0.3382}$. For the `group' variant of the parallel algorithms, we use the value of $g = (n-1)/\sqrt{n}$. 
+
+The results for one-sided and two-sided Jacobi algorithms are shown in Tables~\ref{tab:twosided}~and~\ref{tab:onesided} respectively. Both the tables show that the number of sweeps taken by our algorithms is significantly less than the JRS algorithms.
+
+\begin{table*}
+  \centering
+  \caption{Number of Sweeps for Different Algorithms for Two-sided Jacobi}
+  \label{tab:twosided}
+  \begin{tabular}{lcccccccccc}
+    \toprule
+    Matrix size & Cyclic & TopKFrac & TopKFracJRS & ParJRS & GrpJRS & ParTopKFrac & ParTopKFracJRS & GrpTopKFrac & GrpTopKFracJRS \\
+    \midrule
+    $500 \times 500$   &  \\
+    $750 \times 750$   &  \\
+    $1000 \times 1000$ &  \\
+    $1250 \times 1250$ &  \\
+    $1500 \times 1500$ &  \\
+    $1750 \times 1750$ &  \\
+    $2000 \times 2000$ &  \\
+    \bottomrule
+  \end{tabular}
+\end{table*}
+
+
+\begin{table*}
+  \centering
+  \caption{Number of Sweeps for Different Algorithms for One-sided Jacobi}
+  \label{tab:onesided}
+  \begin{tabular}{lcccccccccc}
+    \toprule
+    Matrix size & Cyclic & TopKFrac & TopKFracJRS & ParJRS & GrpJRS & ParTopKFrac & ParTopKFracJRS & GrpTopKFrac & GrpTopKFracJRS \\
+    \midrule
+    $500 \times 200$   &  \\
+    $750 \times 500$   &  \\
+    $1000 \times 700$  &  \\
+    $1250 \times 900$  &  \\
+    $1500 \times 1300$ &  \\
+    $1750 \times 1500$ &  \\
+    $2000 \times 1800$ &  \\
+    \bottomrule
+  \end{tabular}
+\end{table*}
+
+\subsection{Experimental recommendation for top-frac parameter $k$}
+
+For a given matrix size, it will be useful to find out the value of $k$ that reduces the number of sweeps. To theoretically determine the best possible value of $k$ seems to be hard. We varied $k=1,4,8,16,32$ for the each the appropriate algorithm variants for the matrix sizes sown in Table~\ref{tab:varyk}.
+
+\begin{table*}
+  \centering
+  \caption{Number of Sweeps for Different Algorithms for One-sided Jacobi}
+  \label{tab:varyk}
+  \begin{tabular}{lcccccccccc}
+    \toprule
+    Matrix size & CTopKFrac & TopKFracJRS & ParTopKFrac & ParTopKFracJRS & GrpTopKFrac & GrpTopKFracJRS \\
+    \midrule
+    $500 \times 500$   &  \\
+    $500 \times 200$   &  \\
+    $1000 \times 1000$ &  \\
+    $1000 \times 700$  &  \\
+    $1500 \times 1300$ &  \\
+    $1500 \times 1500$ &  \\
+    $2000 \times 1800$ &  \\
+    $2000 \times 2000$ &  \\
+    \bottomrule
+  \end{tabular}
+\end{table*}
+
+
+\subsection{A real implementation on a multicore computer}
+
+We also implemented a `real' version of our algorithms. We changed the basic implementation of one-sided Jacobi in GSL~\cite{galassi1996gnu} to accommodate our ideas. Note that the GSL implementation is based on the algorithm given in~\cite{nash1975one}.
+
 
 
 \begin{figure*}[!htb]
@@ -390,7 +422,6 @@ minimum number of sweeps.
 %The authors would like to thank...
 %more thanks here
 %
-<<<<<<< HEAD
 %\begin{table}[!t]
 %% increase table row spacing, adjust to taste
 %\renewcommand{\arraystretch}{1.3}
@@ -419,42 +450,6 @@ minimum number of sweeps.
 % command of the stfloats package.
 
 
-\begin{table}[ht]
-\centering
-\begin{tabular}{ |p{3cm}||p{3cm}|p{3cm}|p{3cm}|  }
- \hline
- \multicolumn{4}{|c|}{Country List} \\
- \hline
- Country Name     or Area Name& ISO ALPHA 2 Code &ISO ALPHA 3 Code&ISO numeric Code\\
- \hline
- Afghanistan   & AF    &AFG&   004\\
- Aland Islands&   AX  & ALA   &248\\
- Albania &AL & ALB&  008\\
- Algeria    &DZ & DZA&  012\\
- American Samoa&   AS  & ASM&016\\
- Andorra& AD  & AND   &020\\
- Angola& AO  & AGO&024\\
- \hline
-\end{tabular}
-\end{table}
-
-
-
-\section{Conclusion}
-The conclusion goes here. this is more of the conclusion
-
-% conference papers do not normally have an appendix
-
-
-% use section* for acknowledgement
-\section*{Acknowledgment}
-
-
-The authors would like to thank...
-more thanks here
-
-=======
->>>>>>> 960b573a1591514bb1aa0984197a242fac06c8e2
 
 % trigger a \newpage just before the given reference
 % number - used to balance the columns on the last page
@@ -465,6 +460,8 @@ more thanks here
 %\IEEEtriggercmd{\enlargethispage{-5in}}
 
 % references section
+
+\balance
 
 % can use a bibliography generated by BibTeX as a .bbl file
 % BibTeX documentation can be easily obtained at:
