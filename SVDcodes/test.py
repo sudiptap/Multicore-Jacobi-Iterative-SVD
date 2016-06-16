@@ -11,8 +11,8 @@ def read_vector(fname):
 
 
 
-m = 300 
-n = 300
+m = 200 
+n = 200
 fname = "mymatrix.txt"
 t = [0 for i in range(n)]
 with open(fname, "w") as f:
@@ -22,6 +22,8 @@ with open(fname, "w") as f:
       t[j] = "%.12f" % (random.uniform(1, 10))
     print >>f, '\t'.join(t)
   f.close()
+
+exit(0)
 
 #sp.call("matlab -nodesktop -nosplash -nojvm < 1.bat", shell=True)
 #sp.call("./jacobi -m %d -n %d -s 1 -f mymatrix.txt" % (m, n), shell=True)
@@ -42,9 +44,15 @@ with open(fname, "w") as f:
 lamda = 1.0 - 2.2019*math.pow(m, -0.3382)
 tol = 1e-15
 print lamda
-cmd = "./a.out mymatrix.txt 77 %e %e" % (tol, lamda)
+cmd = "./svd mymatrix.txt 5 %e %e" % (tol, lamda)
 print cmd
 sp.call(cmd, shell=True) 
-cmd = "./a.out mymatrix.txt 7 %e %e" % (tol, lamda)
+cmd = "./svd mymatrix.txt 7 %e %e" % (tol, lamda)
+print cmd
+sp.call(cmd, shell=True) 
+cmd = "./svd mymatrix.txt 77 %e %e" % (tol, lamda)
+print cmd
+sp.call(cmd, shell=True) 
+cmd = "./svd mymatrix.txt 8 %e %e" % (tol, lamda)
 print cmd
 sp.call(cmd, shell=True) 
