@@ -8,106 +8,8 @@
 #include "jrs_one.cpp"
 #include "jps_one.cpp"
 #include "jprs_one.cpp"
+#include "par_jrs_one.cpp"
 
-//two sided sequential sorted Cyclic Jacobi
-unsigned long SortedCyclicJacobi(double **A, int n, double eps, double tol, double param)
-{
-	unsigned long nSweeps = 0;
-	double offA = calcOffA(A, n);
-	int m = n;
-	size_t pivot_count = m*(m-1)/2;
-	
-	size_t idx = 0;int p,q;
-	while(offA > eps)	
-        {
-		vector<pivot> indices(pivot_count);
-		idx = 0;  
-		for(p = 1; p <= m -1; p++)
-		{
-			for(q = p + 1; q <= m; q++)
-			{
-				double Apq = A[p-1][q-1];								
-                                indices[idx++] = make_tuple(p, q, Apq);
-                        }
-                }
-		
-		
-                std::sort(indices.begin(), indices.end(), sort_desc);
-		//for(int p =1; p <= n -1; p++)
-		//{
-			for(size_t i=0; i<indices.size(); ++i)
-			//for(int q = p + 1; q <= n; q++)
-			{
-				double c, s;
-
-				p = get<0>(indices[i]);
-		              	q = get<1>(indices[i]);				
-				double App = A[p-1][p-1];
-				double Aqq = A[q-1][q-1];
-				double Apq = A[p-1][q-1];
-
-				JacobiCS(Apq, App, Aqq, c, s, tol);
-				//RandJacobiCS(A[p-1][q-1], A[p-1][p-1], A[q-1][q-1], c, s,param, tol);
-				rowRot(A, n, p, q, c, s);
-				colRot(A, n, p, q, c, s);
-			}
-		//}
-		nSweeps ++;
-		printf("%s %ld %lf %lf\n", "Current sweeps: ", nSweeps, offA, eps);
-		if(nSweeps == MAXSWEEPS)
-			break;
-		offA = calcOffA(A, n);
-	}
-	return nSweeps;
-}
-
-//Sorted Top-k Cyclic sequential Two sided
-unsigned long SortedTopKCyclicJacobi(double **A, int n, double eps, double tol, double param, size_t k)
-{
-	unsigned long nSweeps = 0;
-	double offA = calcOffA(A, n);
-	int m = n;
-	size_t pivot_count = m*(m-1)/2;
-	vector<pivot> indices(pivot_count);
-	size_t idx = 0;int p,q;
-	while(offA > eps)	
-        {
-		idx = 0;  
-		for(p = 1; p <= m -1; p++)
-		{
-			for(q = p + 1; q <= m; q++)
-			{
-				double Apq = A[p-1][q-1];
-                                indices[idx++] = make_tuple(p, q, Apq);
-                        }
-                }
-                std::sort(indices.begin(), indices.begin()+idx, sort_desc);
-		//for(int p =1; p <= n -1; p++)
-		//{
-			for(size_t i=0; i<(idx/k); ++i)
-			{
-				double c, s;
-
-				p = get<0>(indices[i]);
-		                q = get<1>(indices[i]);
-				double App = A[p-1][p-1];
-				double Aqq = A[q-1][q-1];
-				double Apq = A[p-1][q-1];
-
-				JacobiCS(Apq, App, Aqq, c, s, tol);
-				//RandJacobiCS(A[p-1][q-1], A[p-1][p-1], A[q-1][q-1], c, s, param, tol);
-				rowRot(A, n, p, q, c, s);
-				colRot(A, n, p, q, c, s);
-			}
-		//}
-		nSweeps ++;
-		printf("%s %ld %lf %lf\n", "Current sweeps: ", nSweeps, offA, eps);
-		if(nSweeps == MAXSWEEPS)
-			break;
-		offA = calcOffA(A, n);
-	}
-	return nSweeps;
-}
 
 unsigned long IndependentJacobi(double **A, int n, double eps, double tol)
 {
@@ -588,102 +490,6 @@ unsigned long BlockRandomJacobiGroupJRSTopK(double **A, int n, double eps, doubl
 }
 
 
-
-//sequential sorted Cyclic one sided Jacobi
-unsigned long CyclicOneJacobiSorted(double **A, int m, int n, double eps, double tol, double param)
-{
-	unsigned long nSweeps = 0;
-	int p, q;
-	bool converged = false;
-	double offA = DBL_MAX;
-	size_t pivot_count = m*(m-1)/2;
-        vector<pivot> indices(pivot_count);
-        size_t idx = 0;
-	while(!converged)
-	{
-		idx = 0;  
-		for(p = 1; p <= m -1; p++)
-		{
-			for(q = p + 1; q <= m; q++)
-			{
-				double Apq = dotproduct(A, p, q, n);
-                                indices[idx++] = make_tuple(p, q, Apq);
-                        }
-                }
-                std::sort(indices.begin(), indices.begin()+idx, sort_desc);
-		converged = true;
-		//for(int p =1; p <= m -1; p++)
-		//{
-			for(size_t i=0; i<idx; ++i)
-			{
-				double c, s;
-				p = get<0>(indices[i]);
-                        	q = get<1>(indices[i]);
-				double App = vectornorm(A, p, n);
-				double Aqq = vectornorm(A, q, n);
-				double Apq = dotproduct(A, p, q, n);
-				if(fabs(Apq) > eps)
-					converged = false;
-				RandJacobiCS(Apq, App, Aqq, c, s, param, tol);
-				rowRot(A, n, p, q, c, s);				
-			}
-		//}
-		nSweeps ++;
-		printf("%s %ld \n", "Current sweeps: ", nSweeps);
-		if(nSweeps == MAXSWEEPS)
-			break;
-		
-	}
-	return nSweeps;
-}
-
-//sequential sorted top-K Cyclic one sided Jacobi
-unsigned long CyclicOneJacobiSortedTopK(double **A, int m, int n, double eps, double tol, double param, size_t k)
-{
-	unsigned long nSweeps = 0;
-	int p, q;
-	bool converged = false;
-	double offA = DBL_MAX;
-	size_t pivot_count = m*(m-1)/2;
-        vector<pivot> indices(pivot_count);
-        size_t idx = 0;
-	while(!converged)
-	{
-		idx = 0;  
-		for(p = 1; p <= m -1; p++)
-		{
-			for(q = p + 1; q <= m; q++)
-			{
-				double Apq = dotproduct(A, p, q, n);
-                                indices[idx++] = make_tuple(p, q, Apq);
-                        }
-                }
-                std::sort(indices.begin(), indices.begin()+idx, sort_desc);
-		converged = true;
-		//for(int p =1; p <= m -1; p++)
-		//{
-			for(size_t i=0; i<idx/k; ++i)
-			{
-				double c, s;
-				p = get<0>(indices[i]);
-                        	q = get<1>(indices[i]);
-				double App = vectornorm(A, p, n);
-				double Aqq = vectornorm(A, q, n);
-				double Apq = dotproduct(A, p, q, n);
-				if(fabs(Apq) > eps)
-					converged = false;
-				RandJacobiCS(Apq, App, Aqq, c, s, param, tol);
-				rowRot(A, n, p, q, c, s);				
-			}
-		//}
-		nSweeps ++;
-		printf("%s %ld \n", "Current sweeps: ", nSweeps);
-		if(nSweeps == MAXSWEEPS)
-			break;
-		
-	}
-	return nSweeps;
-}
 
 unsigned long IndependentOneJacobi(double **A, int m, int n, double eps, double tol)
 {
@@ -1259,7 +1065,6 @@ int main(int argc, char* argv[])
       printf("Two sided Jacobi requires square matrix !!\n");
       exit(-1);
     }
-    bool symmetric = true;
     for (int i=0; i<rows-1; i++) {
       for (int j=i+1; j<rows; j++) {
         if (A[i][j] != A[j][i]) {
@@ -1287,6 +1092,9 @@ int main(int argc, char* argv[])
     case 204:
       nSweeps = JPRSTwo(A, rows, eps, tol, param, topk);
       break;
+    case 205:
+      nSweeps = ParallelJRSTwo(A, rows, eps, tol, param);
+      break;
 		case 101:
 			nSweeps = CyclicJacobiOne(A, rows, cols, eps, tol, param);
 			break;
@@ -1299,18 +1107,12 @@ int main(int argc, char* argv[])
     case 104:
       nSweeps = JPRSOne(A, rows, cols, eps, tol, param, topk);
       break;
+    case 105:
+      nSweeps = ParallelJRSOne(A, rows, cols, eps, tol, param);
+      break;
 
     case 300:
       nSweeps = IndependentJacobi(A, rows, eps, tol);//Independent two-sided Jacobi
-      break;
-//    case 203:
-//      nSweeps = SortedCyclicJacobi(A, rows, eps, tol, param); //Sorted Twosided Jacobi Sequential 
-//      break;
-//    case 204:
-//      nSweeps = SortedTopKCyclicJacobi(A, rows, eps, tol, param, 4); //Sorted Top-k Cyclic sequential Two sided  
-//      break;
-    case 205:
-      nSweeps = RandomJacobi(A, rows, eps, tol, param);//JRS parallel two sided - this converges very slowly and never terminates within 3000 ietartions even with 200X200 matrix
       break;
     case 206:
 			nSweeps = RandomJacobiJRSTopK(A, rows, eps, tol, param, 4); //JRS parallel two sided + Top-k 
@@ -1324,21 +1126,12 @@ int main(int argc, char* argv[])
 		case 209:
 			nSweeps = BlockRandomJacobiGroupJRSTopK(A, rows, eps, tol, param, 4);//group JRS parallel sorted top -k two sided - not implemented yet
 			break;
-//		case 102:
-//			nSweeps = CyclicOneJacobiSorted(A, rows, cols, eps, tol, param);//sorted sequential cyclic one-sided Jacobi
-//			break;
-//		case 103:
-//			nSweeps = CyclicOneJacobiSortedTopK(A, rows, cols, eps, tol, param, 4);//sorted top k sequential cyclic one-sided Jacobi
-//			break;
 		case 6:
 			nSweeps = IndependentOneJacobi(A, rows, cols, eps, tol);//Independent one-sided Jacobi
 			break;
-//		case 104:
-//			nSweeps = RandomOneJacobi(A, rows, cols, eps, tol, param);//one-sided parallel JRS
+//		case 105:
+//			nSweeps = SortedOneJacobi(A, rows, cols, eps, tol, param);//one-sided parallel JRS sorted
 //			break;
-		case 105:
-			nSweeps = SortedOneJacobi(A, rows, cols, eps, tol, param);//one-sided parallel JRS sorted
-			break;
 		case 8:
 			nSweeps = BlockRandomOneJacobi(A, rows, cols, eps, tol, param);//group one-sided JRS
 			break;

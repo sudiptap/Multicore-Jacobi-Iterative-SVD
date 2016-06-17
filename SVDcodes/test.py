@@ -20,7 +20,7 @@ def run_solvers(m,n,prefix,solvers,log):
     lamda = 1.0 - 2.2019*math.pow(m, -0.3382)
     sol_codes = [100+x for x in solvers]
   else: 
-    lamda = 1.0 - 2.2019*math.pow(m, -0.3382)
+    lamda = 1.0 - 2.9267*math.pow(m, -0.4284)
     sol_codes = [200+x for x in solvers]
   mat = prefix + str(m) + "x" + str(n)
   for i in range(num_instances):

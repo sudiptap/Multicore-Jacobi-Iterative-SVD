@@ -24,8 +24,7 @@ unsigned long JRSOne(double **A, int m, int n, double eps, double tol, double pa
 		nSweeps ++;
 		//printf("%s %ld %lf %lf\n", "Current sweeps: ", nSweeps, offA, eps);
 		if(nSweeps == MAXSWEEPS)
-			break;
-		
+			break;		
 	}
 	return nSweeps;
 }
