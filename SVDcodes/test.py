@@ -9,19 +9,33 @@ def read_vector(fname):
         v.append(float(l.rstrip()))
   return v
 
+def gen_matrix(m, n):
+    A = [[0 for y in range(n)] for x in range(m)]
+    for i in range(m):
+        for j in range(n):
+            A[i][j] = random.uniform(1, 10)
+    return A
 
 
-m = 200 
-n = 200
-fname = "mymatrix.txt"
-t = [0 for i in range(n)]
-with open(fname, "w") as f:
-  print >>f, m
-  for i in range(m):
-    for j in range(n):
-      t[j] = "%.12f" % (random.uniform(1, 10))
-    print >>f, '\t'.join(t)
-  f.close()
+def gen_symm_matrix(n):
+    A = [[0 for y in range(n)] for x in range(n)]
+    for i in range(n):
+        for j in range(i, n):
+            A[i][j] = A[j][i] = random.uniform(1, 10)
+    return A
+
+def print_matrix(A, fname):
+    m = len(A)
+    n = len(A[0])
+    with open(fname, "w") as f:
+      print >>f, m, n
+      for i in range(m):
+        print >>f, '\t'.join(["%.12e" % (x) for x in A[i]])
+      f.close()
+
+
+print_matrix(gen_matrix(10, 5), "mymatrix.txt")
+print_matrix(gen_symm_matrix(10), "mymatrixsymm.txt")
 
 exit(0)
 
