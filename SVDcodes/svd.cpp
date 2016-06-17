@@ -1235,21 +1235,18 @@ int main(int argc, char* argv[])
 	int option = atoi(argv[2]);//which algorithm
 	int cols;
 	int rows = readNSymA(filename, &A, &cols);//read the matrix data
-  printf("%d %d\n", rows, cols);
-  for (int i=0; i<rows; i++) {
-    for (int j=0; j<cols; j++) {
-      printf("%.12e ", A[i][j]);
-    }
-    printf("\n");
-  }
-
 	double norm = calcNorm(A, rows, cols);
-
 	double tol = atof(argv[3]);//tolerance, e.g. 1e-15
 	double param = atof(argv[4]);
 	double eps = tol * norm;//stop criterion
 
-  printf(" tol=%lf, norm=%lf, eps=%lf, param=%lf\n", tol, norm, eps, param);
+  printf("m=%d, n=%d, file=%s, tol=%lf, norm=%lf, eps=%lf, param=%lf\n", rows, cols, filename, tol, norm, eps, param);
+  //for (int i=0; i<rows; i++) {
+  //  for (int j=0; j<cols; j++) {
+  //    printf("%.12e ", A[i][j]);
+  //  }
+  //  printf("\n");
+  //}
 
   if (option/100 == 2) {
     if (rows != cols) {
@@ -1284,6 +1281,7 @@ int main(int argc, char* argv[])
     case 102:
       nSweeps = JRSOne(A, rows, cols, eps, tol, param);//two-sided Jacobi sequential
       break;
+
     case 300:
       nSweeps = IndependentJacobi(A, rows, eps, tol);//Independent two-sided Jacobi
       break;
@@ -1351,11 +1349,11 @@ int main(int argc, char* argv[])
 	fclose(fp);
 	delete [] A;
 
-	printf("%s %ld\n", "sweeps = ", nSweeps);
+	printf("@@@@,%d,%d,%s,%d,%ld\n", rows,cols,filename,option,nSweeps);
 
-	FILE *fplog = fopen("log.txt", "at");
-	fprintf(fplog, "\n %s %s %d %s %ld\n", filename, "option = ", option, "sweeps = ", nSweeps);
-	fclose(fp);
+//	FILE *fplog = fopen("log.txt", "at");
+//	fprintf(fplog, "\n %s %s %d %s %ld\n", filename, "option = ", option, "sweeps = ", nSweeps);
+//	fclose(fp);
 
 	return 0;
 }
