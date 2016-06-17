@@ -26,7 +26,7 @@ def run_solvers(m,n,prefix,solvers,log):
   for i in range(num_instances):
     mat_file = data_dir + "/" + mat + "/" + mat + "-" + str(i+1) + ".txt"
     for s in sol_codes:
-      cmd = "%s %s %d %e %e" % (cmd_exe, mat_file, s, tol, lamda)
+      cmd = "%s %s %d %e %e %d" % (cmd_exe, mat_file, s, tol, lamda, topk)
       print cmd
       run_cmd_tee(cmd, log)
 

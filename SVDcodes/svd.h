@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <time.h>
+#include <assert.h>
 #include <limits.h>
 #include <float.h>
 #include <iostream>
@@ -80,6 +81,11 @@ double calcOffA(double **A, int rows)
 		
 		for(int j=0; j<rows; j++)
 		{
+      if (fabs(A[i][j]-A[j][i]) > 1e-10) {
+        cout << i << "," << j << "," << A[i][j] << "," << A[j][i] << endl;
+        cout << "not symmetric" << endl;
+        exit(-1);
+      }
 			if(j != i)
 				offA += (A[i][j] * A[i][j]);
 		}

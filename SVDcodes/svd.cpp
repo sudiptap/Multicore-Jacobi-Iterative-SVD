@@ -1,9 +1,13 @@
 #include "svd.h"
 #include "cyclic_jacobi_two.cpp"
 #include "jrs_two.cpp"
+#include "jps_two.cpp"
+#include "jprs_two.cpp"
 #include "par_jrs_two.cpp"
 #include "cyclic_jacobi_one.cpp"
 #include "jrs_one.cpp"
+#include "jps_one.cpp"
+#include "jprs_one.cpp"
 
 //two sided sequential sorted Cyclic Jacobi
 unsigned long SortedCyclicJacobi(double **A, int n, double eps, double tol, double param)
@@ -1223,10 +1227,10 @@ unsigned long StrumpenRelaxationJacobi(double **A, int m, int n, double eps, dou
 
 int main(int argc, char* argv[])
 {
-  if (argc < 5) {
+  if (argc < 6) {
     printf("useage:\n"
-	     "svd filename AlgOption tolerance lambda\n"
-       "e.g svd matrix200.txt 3 0.000000000000001 0.7\n");
+	     "svd filename AlgOption tolerance lambda top-k\n"
+       "e.g svd matrix200.txt 3 0.000000000000001 0.7 4\n");
     exit(-1);
   }
 
@@ -1238,9 +1242,11 @@ int main(int argc, char* argv[])
 	double norm = calcNorm(A, rows, cols);
 	double tol = atof(argv[3]);//tolerance, e.g. 1e-15
 	double param = atof(argv[4]);
+	int param2 = atoi(argv[5]);
 	double eps = tol * norm;//stop criterion
+  long topk = rows*(rows-1)/(2*param2);
 
-  printf("m=%d, n=%d, file=%s, tol=%lf, norm=%lf, eps=%lf, param=%lf\n", rows, cols, filename, tol, norm, eps, param);
+  printf("m=%d, n=%d, file=%s, tol=%lf, norm=%lf, eps=%lf, lambda=%lf, topk=%ld\n", rows, cols, filename, tol, norm, eps, param, topk);
   //for (int i=0; i<rows; i++) {
   //  for (int j=0; j<cols; j++) {
   //    printf("%.12e ", A[i][j]);
@@ -1270,27 +1276,39 @@ int main(int argc, char* argv[])
   switch(option)
   {
     case 201:
-      nSweeps = CyclicJacobiTwo(A, rows, eps, tol, param);//two-sided Jacobi sequential
+      nSweeps = CyclicJacobiTwo(A, rows, eps, tol, param);
       break;
     case 202:
-      nSweeps = JRSTwo(A, rows, eps, tol, param);//two-sided Jacobi sequential
+      nSweeps = JRSTwo(A, rows, eps, tol, param);
+      break;
+    case 203:
+      nSweeps = JPSTwo(A, rows, eps, tol, param, topk);
+      break;
+    case 204:
+      nSweeps = JPRSTwo(A, rows, eps, tol, param, topk);
       break;
 		case 101:
-			nSweeps = CyclicJacobiOne(A, rows, cols, eps, tol, param);//sequential cyclic one-sided Jacobi
+			nSweeps = CyclicJacobiOne(A, rows, cols, eps, tol, param);
 			break;
     case 102:
-      nSweeps = JRSOne(A, rows, cols, eps, tol, param);//two-sided Jacobi sequential
+      nSweeps = JRSOne(A, rows, cols, eps, tol, param);
+      break;
+    case 103:
+      nSweeps = JPSOne(A, rows, cols, eps, tol, param, topk);
+      break;
+    case 104:
+      nSweeps = JPRSOne(A, rows, cols, eps, tol, param, topk);
       break;
 
     case 300:
       nSweeps = IndependentJacobi(A, rows, eps, tol);//Independent two-sided Jacobi
       break;
-    case 203:
-      nSweeps = SortedCyclicJacobi(A, rows, eps, tol, param); //Sorted Twosided Jacobi Sequential 
-      break;
-    case 204:
-      nSweeps = SortedTopKCyclicJacobi(A, rows, eps, tol, param, 4); //Sorted Top-k Cyclic sequential Two sided  
-      break;
+//    case 203:
+//      nSweeps = SortedCyclicJacobi(A, rows, eps, tol, param); //Sorted Twosided Jacobi Sequential 
+//      break;
+//    case 204:
+//      nSweeps = SortedTopKCyclicJacobi(A, rows, eps, tol, param, 4); //Sorted Top-k Cyclic sequential Two sided  
+//      break;
     case 205:
       nSweeps = RandomJacobi(A, rows, eps, tol, param);//JRS parallel two sided - this converges very slowly and never terminates within 3000 ietartions even with 200X200 matrix
       break;
@@ -1309,15 +1327,15 @@ int main(int argc, char* argv[])
 //		case 102:
 //			nSweeps = CyclicOneJacobiSorted(A, rows, cols, eps, tol, param);//sorted sequential cyclic one-sided Jacobi
 //			break;
-		case 103:
-			nSweeps = CyclicOneJacobiSortedTopK(A, rows, cols, eps, tol, param, 4);//sorted top k sequential cyclic one-sided Jacobi
-			break;
+//		case 103:
+//			nSweeps = CyclicOneJacobiSortedTopK(A, rows, cols, eps, tol, param, 4);//sorted top k sequential cyclic one-sided Jacobi
+//			break;
 		case 6:
 			nSweeps = IndependentOneJacobi(A, rows, cols, eps, tol);//Independent one-sided Jacobi
 			break;
-		case 104:
-			nSweeps = RandomOneJacobi(A, rows, cols, eps, tol, param);//one-sided parallel JRS
-			break;
+//		case 104:
+//			nSweeps = RandomOneJacobi(A, rows, cols, eps, tol, param);//one-sided parallel JRS
+//			break;
 		case 105:
 			nSweeps = SortedOneJacobi(A, rows, cols, eps, tol, param);//one-sided parallel JRS sorted
 			break;
