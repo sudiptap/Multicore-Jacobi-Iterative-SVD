@@ -2,11 +2,7 @@ import random
 import math
 import os
 import subprocess as sp
-
-script_dir = os.path.dirname(os.path.abspath(__file__))
-data_dir = os.path.abspath(script_dir + "/../data")
-
-print data_dir
+from test_config import *
 
 def read_vector(fname):
   v = []
@@ -39,12 +35,6 @@ def print_matrix(A, fname):
         print >>f, '\t'.join(["%.12e" % (x) for x in A[i]])
       f.close()
 
-sym_mat_sizes = [30, 50,
-    500, 750, 1000, 1250, 1500, 1750, 2000]
-mat_sizes = [[30, 25], [50, 20],
-    [500, 300], [750, 500], [1000, 700], [1250, 900], [1500, 1300], [1750, 1500], [2000,1800]]
-num_instances = 10
-
 for n in sym_mat_sizes:
     mat = "sm" + str(n) + "x" + str(n)
     mat_dir = data_dir + "/" + mat
@@ -66,3 +56,4 @@ for (m, n) in mat_sizes:
         mat_file = mat_dir + "/" + mat_ins
         print mat_file
         print_matrix(gen_matrix(m, n), mat_file)
+
