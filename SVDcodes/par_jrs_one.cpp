@@ -31,7 +31,6 @@ unsigned long ParallelJRSOne(double **A, int m, int n, double eps, double tol, d
 			for(q = p + 1; q < m; q++)
 			{
 				rowRot(A, n, p, q, c[p][q], s[p][q]);
-				colRot(A, n, p, q, c[p][q], s[p][q]);
 			}
 		}
 		nSweeps ++;
