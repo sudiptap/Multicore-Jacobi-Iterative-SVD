@@ -19,6 +19,8 @@ SRCS=svd.h \
 		 jprs_two.cpp \
 		 par_jrs_one.cpp \
 		 par_jrs_two.cpp \
+		 par_jps_one.cpp \
+		 par_jps_two.cpp \
 
 
 #jacobi_gsl_best_pair_first.hpp \

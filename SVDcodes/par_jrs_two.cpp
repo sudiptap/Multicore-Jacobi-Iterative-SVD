@@ -45,4 +45,3 @@ unsigned long ParallelJRSTwo(double **A, int n, double eps, double tol, double p
 	delete[] s;
 	return nSweeps;
 }
-
