@@ -6,7 +6,7 @@ RM=rm -f
 #CXXFLAGS=-Wall -O3 -std=c++11 
 CXXFLAGS=-Wall -O0 -g -std=c++11 
 LDFLAGS=-fopenmp -pthread -std=c++11 -Wl,--no-as-needed
-LDLIBS=-lpthread -lgsl -lblas
+LDLIBS=-lpthread #-lgsl -lblas
 
 SRCS=svd.h \
 		 cyclic_jacobi_one.cpp \
@@ -21,6 +21,7 @@ SRCS=svd.h \
 		 par_jrs_two.cpp \
 		 par_jps_one.cpp \
 		 par_jps_two.cpp \
+		 grp_jrs_two.cpp \
 
 
 #jacobi_gsl_best_pair_first.hpp \
