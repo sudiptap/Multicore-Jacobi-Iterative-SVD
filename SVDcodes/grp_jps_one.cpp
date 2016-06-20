@@ -130,7 +130,7 @@ unsigned long GroupJPSOne(double **A, int m, int n, double eps, double tol, doub
     }
 
     nSweeps ++;
-    printf("%s %ld \n", "Current sweeps: ", nSweeps);
+    //printf("%s %ld \n", "Current sweeps: ", nSweeps);
     if(nSweeps == MAXSWEEPS)
       break;
 

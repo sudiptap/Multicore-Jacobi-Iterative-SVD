@@ -588,13 +588,7 @@ The results for one-sided and two-sided Jacobi algorithms are shown in Tables~\r
   \centering
   \caption{Number of Sweeps for Different Algorithms for Two-sided Jacobi}
   \label{tab:twosided}
-  \begin{tabular}{lcccccccccc}
-    \toprule
-    Matrix size & Cyclic & TopKFrac & TopKFracJRS & ParJRS & GrpJRS & ParTopKFrac & ParTopKFracJRS & GrpTopKFrac & GrpTopKFracJRS \\
-    \midrule
-    \input{twosided}
-    \bottomrule
-  \end{tabular}
+  \input{twosided}
 \end{table*}
 
 
@@ -602,18 +596,12 @@ The results for one-sided and two-sided Jacobi algorithms are shown in Tables~\r
   \centering
   \caption{Number of Sweeps for Different Algorithms for One-sided Jacobi}
   \label{tab:onesided}
-  \begin{tabular}{lcccccccccc}
-    \toprule
-    Matrix size & Cyclic & TopKFrac & TopKFracJRS & ParJRS & GrpJRS & ParTopKFrac & ParTopKFracJRS & GrpTopKFrac & GrpTopKFracJRS \\
-    \midrule
-    \input{onesided}
-    \bottomrule
-  \end{tabular}
+  \input{onesided}
 \end{table*}
 
 \subsection{Experimental recommendation for top-frac parameter $k$}
 
-For a given matrix size, it will be useful to find out the value of $k$ that reduces the number of sweeps. To theoretically determine the best possible value of $k$ seems to be hard. We varied $k=1,4,8,16,32$ for the each the appropriate algorithm variants for the matrix sizes sown in Table~\ref{tab:varyk}.
+For a given matrix size, it will be useful to find out the value of $k$ that reduces the number of sweeps. To theoretically determine the best possible value of $k$ seems to be hard. We varied $k=1,2,4,8,16,32$ for the each the appropriate algorithm variants for the matrix sizes sown in Table~\ref{tab:varyk}.
 
 \begin{table*}
   \centering

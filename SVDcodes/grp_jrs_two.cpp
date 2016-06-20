@@ -81,7 +81,7 @@ unsigned long GroupJRSTwo(double **A, int n, double eps, double tol, double para
     }
 
     nSweeps ++;
-    printf("%s %ld \n", "Current sweeps: ", nSweeps);
+    //printf("%s %ld \n", "Current sweeps: ", nSweeps);
     if(nSweeps == MAXSWEEPS)
       break;
     offA = calcOffA(A, n);
