@@ -17,6 +17,6 @@ solvers = [1,2,3,4,5,6,7,8,9,10]
 
 sym_mat_sizes = [30, 50]
 mat_sizes = [[30, 25], [50, 20]]
-solvers = [6]
+solvers = [7]
 
 
