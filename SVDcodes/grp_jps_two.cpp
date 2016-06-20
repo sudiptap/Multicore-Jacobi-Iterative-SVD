@@ -44,7 +44,6 @@ unsigned long GroupJPSTwo(double **A, int n, double eps, double tol, double para
       for(q = p + 1; q < n; q++)
       {
         indices[idx++] = make_tuple(p, q, fabs(A[p][q]));
-        JacobiCS(A[p][q], A[p][p], A[q][q], c[p][q], s[p][q], tol);
       }
     }
     std::sort(indices.begin(), indices.end(), sort_desc);
@@ -71,7 +70,7 @@ unsigned long GroupJPSTwo(double **A, int n, double eps, double tol, double para
           qa[g*n/2+k] = q;
           if (use[p][q])
           {
-            RandJacobiCS(A[p][q], A[p][p], A[q][q], c[p][q], s[p][q], param, tol);
+            JacobiCS(A[p][q], A[p][p], A[q][q], c[p][q], s[p][q], tol);
           }
         }
         music(top, bot, newtop, newbot, n/2);
@@ -101,7 +100,7 @@ unsigned long GroupJPSTwo(double **A, int n, double eps, double tol, double para
         qa[g*n/2+k] = q;
         if (use[p][q])
         {
-          RandJacobiCS(A[p][q], A[p][p], A[q][q], c[p][q], s[p][q], param, tol);
+          JacobiCS(A[p][q], A[p][p], A[q][q], c[p][q], s[p][q], tol);
         }
       }
       music(top, bot, newtop, newbot, n/2);
@@ -121,7 +120,7 @@ unsigned long GroupJPSTwo(double **A, int n, double eps, double tol, double para
     }
 
     nSweeps ++;
-    printf("%s %ld \n", "Current sweeps: ", nSweeps);
+    //printf("%s %ld \n", "Current sweeps: ", nSweeps);
     if(nSweeps == MAXSWEEPS)
       break;
     offA = calcOffA(A, n);

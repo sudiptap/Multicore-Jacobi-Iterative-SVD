@@ -1,4 +1,4 @@
-unsigned long GroupJPSOne(double **A, int m, int n, double eps, double tol, double param, int topk)
+unsigned long GroupJRSOne(double **A, int m, int n, double eps, double tol, double randParam)
 {
   int p, q;
   unsigned long nSweeps = 0;
@@ -6,16 +6,11 @@ unsigned long GroupJPSOne(double **A, int m, int n, double eps, double tol, doub
 
   double **c = new double*[m];
   double **s = new double*[m];
-  int **use = new int*[m];
   for(int i = 0; i < m; i++)
   {
     c[i] = new double[m];
     s[i] = new double[m];
-    use[i] = new int[m];
   }
-  size_t pivot_count = m*(m-1)/2;
-  size_t idx;
-  vector<pivot> indices(pivot_count);
 
   int setsPerBlock = (int)sqrt(m);
   int blocks = (m-1) / setsPerBlock;
@@ -32,29 +27,6 @@ unsigned long GroupJPSOne(double **A, int m, int n, double eps, double tol, doub
   while(!converged)
   {
     converged = true;
-    idx = 0;
-    for(p = 0; p < m -1; p++)
-    {
-      for(q = p + 1; q < m; q++)
-      {
-         use[p][q] = 0;
-      }
-    }
-    for(p = 0; p < m -1; p++)
-    {
-      for(q = p + 1; q < m; q++)
-      {
-        double Apq = dotproduct(A, p, q, n);
-        indices[idx++] = make_tuple(p, q, fabs(Apq));
-      }
-    }
-    std::sort(indices.begin(), indices.end(), sort_desc);
-    for(int i=0; i<topk; ++i)
-    {
-      p = get<0>(indices[i]);
-      q = get<1>(indices[i]);	
-      use[p][q] = 1;
-    }
     for(int k=0; k<m/2; k++)
     {
       top[k] = 2*k;
@@ -70,15 +42,12 @@ unsigned long GroupJPSOne(double **A, int m, int n, double eps, double tol, doub
           q = max(top[k], bot[k]);
           pa[g*m/2+k] = p;
           qa[g*m/2+k] = q;
-        double App = vectornorm(A, p, n);
-        double Aqq = vectornorm(A, q, n);
-        double Apq = dotproduct(A, p, q, n);
-        if(fabs(Apq) > eps)
-          converged = false;
-          if (use[p][q])
-          {
-        JacobiCS(Apq, App, Aqq, c[p][q], s[p][q], tol);
-          }
+          double App = vectornorm(A, p, n);
+          double Aqq = vectornorm(A, q, n);
+          double Apq = dotproduct(A, p, q, n);
+          if(fabs(Apq) > eps)
+            converged = false;
+          RandJacobiCS(Apq, App, Aqq, c[p][q], s[p][q], randParam, tol);
         }
         music(top, bot, newtop, newbot, m/2);
         swap(top, newtop);
@@ -89,10 +58,7 @@ unsigned long GroupJPSOne(double **A, int m, int n, double eps, double tol, doub
       {			
         p = pa[g];
         q = qa[g];
-        if (use[p][q])
-        {
-          rowRot(A, n, p, q, c[p][q], s[p][q]);
-        }
+        rowRot(A, n, p, q, c[p][q], s[p][q]);
       }
     }	
 
@@ -109,10 +75,7 @@ unsigned long GroupJPSOne(double **A, int m, int n, double eps, double tol, doub
         double Apq = dotproduct(A, p, q, n);
         if(fabs(Apq) > eps)
           converged = false;
-        if (use[p][q])
-        {
-        JacobiCS(Apq, App, Aqq, c[p][q], s[p][q], tol);
-        }
+        RandJacobiCS(Apq, App, Aqq, c[p][q], s[p][q], randParam, tol);
       }
       music(top, bot, newtop, newbot, m/2);
       swap(top, newtop);
@@ -123,11 +86,9 @@ unsigned long GroupJPSOne(double **A, int m, int n, double eps, double tol, doub
     {			
       p = pa[g];
       q = qa[g];
-      if (use[p][q])
-      {
-        rowRot(A, n, p, q, c[p][q], s[p][q]);
-      }
+      rowRot(A, n, p, q, c[p][q], s[p][q]);
     }
+
 
     nSweeps ++;
     //printf("%s %ld \n", "Current sweeps: ", nSweeps);
@@ -139,11 +100,9 @@ unsigned long GroupJPSOne(double **A, int m, int n, double eps, double tol, doub
   {
     delete[] c[i];
     delete[] s[i];
-    delete[] use[i];
   }
   delete[] c;
   delete[] s;
-  delete[] use;
 
   delete[] top;
   delete[] bot;

@@ -23,6 +23,18 @@ def read_log(logfile):
             sweeps[mat][solver] = [int(dat[5])]
     log.close()
 
+def gen_header(solvers, f):
+  print >>f, "\\begin{tabular}{l%s}" % ('c' * len(solvers))
+  print >>f, "\\toprule"
+  print >>f, "Matrix",
+  for s in solvers:
+      print >>f, "& %s" % (solver_names[s]),
+  print >>f, "\\\\"
+  print >>f, "\\midrule"
+
+def gen_footer(solvers, f):
+  print >>f, "\\bottomrule"
+  print >>f, "\\end{tabular}"
 
 def gen_report(m,n,prefix,solvers,f):
   if (prefix == "m"):
@@ -43,12 +55,16 @@ def copy_file(fname):
 read_log("mylog.txt")
 
 with open("twosided.tex", "wt") as f:
+    gen_header(solvers, f)
     for n in sym_mat_sizes:
         gen_report(n,n,"sm",solvers,f)
+    gen_footer(solvers, f)
 
 with open("onesided.tex", "wt") as f:
+    gen_header(solvers, f)
     for (m, n) in mat_sizes:
       gen_report(m,n,"m", solvers, f);
+    gen_footer(solvers, f)
 
 copy_file("twosided.tex")
 copy_file("onesided.tex")

@@ -28,7 +28,7 @@ unsigned long JPRSTwo(double **A, int n, double eps, double tol, double param, i
       colRot(A, n, p, q, c, s);
     }
     nSweeps ++;
-    printf("%s %ld %lf %lf\n", "Current sweeps: ", nSweeps, offA, eps);
+    //printf("%s %ld %lf %lf\n", "Current sweeps: ", nSweeps, offA, eps);
     if(nSweeps == MAXSWEEPS)
       break;
     offA = calcOffA(A, n);

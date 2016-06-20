@@ -34,7 +34,7 @@ unsigned long ParallelJPSTwo(double **A, int n, double eps, double tol, double p
       colRot(A, n, p, q, c[p][q], s[p][q]);
     }
     nSweeps ++;
-    printf("%s %ld %lf %lf\n", "Current sweeps: ", nSweeps, offA, eps);
+    //printf("%s %ld %lf %lf\n", "Current sweeps: ", nSweeps, offA, eps);
     if(nSweeps == MAXSWEEPS)
       break;
     offA = calcOffA(A, n);

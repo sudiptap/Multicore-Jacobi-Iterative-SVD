@@ -17,7 +17,7 @@ unsigned long JRSTwo(double **A, int n, double eps, double tol, double param)
 			}
 		}
 		nSweeps ++;
-		printf("%s %ld %lf %lf\n", "Current sweeps: ", nSweeps, offA, eps);
+		//printf("%s %ld %lf %lf\n", "Current sweeps: ", nSweeps, offA, eps);
 		if(nSweeps == MAXSWEEPS)
 			break;
 		offA = calcOffA(A, n);
