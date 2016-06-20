@@ -25,6 +25,8 @@ SRCS=svd.h \
 		 par_jprs_two.cpp \
 		 grp_jrs_one.cpp \
 		 grp_jrs_two.cpp \
+		 grp_jps_one.cpp \
+		 grp_jps_two.cpp \
 
 
 #jacobi_gsl_best_pair_first.hpp \

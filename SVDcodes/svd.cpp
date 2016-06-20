@@ -7,6 +7,7 @@
 #include "par_jps_two.cpp"
 #include "par_jprs_two.cpp"
 #include "grp_jrs_two.cpp"
+#include "grp_jps_two.cpp"
 #include "cyclic_jacobi_one.cpp"
 #include "jrs_one.cpp"
 #include "jps_one.cpp"
@@ -15,6 +16,7 @@
 #include "par_jps_one.cpp"
 #include "par_jprs_one.cpp"
 #include "grp_jrs_one.cpp"
+#include "grp_jps_one.cpp"
 
 
 unsigned long IndependentJacobi(double **A, int n, double eps, double tol)
@@ -893,6 +895,9 @@ int main(int argc, char* argv[])
     case 208:
       nSweeps = GroupJRSTwo(A, rows, eps, tol, param);
       break;
+    case 209:
+      nSweeps = GroupJPSTwo(A, rows, eps, tol, param, topk);
+      break;
 
 		case 101:
 			nSweeps = CyclicJacobiOne(A, rows, cols, eps, tol, param);
@@ -918,6 +923,9 @@ int main(int argc, char* argv[])
     case 108:
       nSweeps = GroupJRSOne(A, rows, cols, eps, tol, param);
       break;
+    case 109:
+      nSweeps = GroupJPSOne(A, rows, cols, eps, tol, param, topk);
+      break;
 
     case 300:
       nSweeps = IndependentJacobi(A, rows, eps, tol);//Independent two-sided Jacobi
@@ -928,9 +936,9 @@ int main(int argc, char* argv[])
 //		case 208:
 //			nSweeps = BlockRandomJacobiGroupJRSSorted(A, rows, eps, tol, param);//group JRS parallel sorted two sided - not implemented yet
 //			break;
-		case 209:
-			nSweeps = BlockRandomJacobiGroupJRSTopK(A, rows, eps, tol, param, 4);//group JRS parallel sorted top -k two sided - not implemented yet
-			break;
+//		case 209:
+//			nSweeps = BlockRandomJacobiGroupJRSTopK(A, rows, eps, tol, param, 4);//group JRS parallel sorted top -k two sided - not implemented yet
+//			break;
 		case 6:
 			nSweeps = IndependentOneJacobi(A, rows, cols, eps, tol);//Independent one-sided Jacobi
 			break;

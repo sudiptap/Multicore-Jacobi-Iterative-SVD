@@ -1,4 +1,4 @@
-unsigned long GroupJRSTwo(double **A, int n, double eps, double tol, double param)
+unsigned long GroupJPSTwo(double **A, int n, double eps, double tol, double param, int topk)
 {
   int p, q;
   unsigned long nSweeps = 0;
@@ -6,11 +6,16 @@ unsigned long GroupJRSTwo(double **A, int n, double eps, double tol, double para
 
   double **c = new double*[n];
   double **s = new double*[n];
+  int **use = new int*[n];
   for(int i = 0; i < n; i++)
   {
     c[i] = new double[n];
     s[i] = new double[n];
+    use[i] = new int[n];
   }
+  size_t pivot_count = n*(n-1)/2;
+  size_t idx;
+  vector<pivot> indices(pivot_count);
 
   int setsPerBlock = (int)sqrt(n);
   int blocks = (n-1) / setsPerBlock;
@@ -26,6 +31,29 @@ unsigned long GroupJRSTwo(double **A, int n, double eps, double tol, double para
 
   while(offA > eps)
   {
+    idx = 0;
+    for(p = 0; p < n -1; p++)
+    {
+      for(q = p + 1; q < n; q++)
+      {
+         use[p][q] = 0;
+      }
+    }
+    for(p = 0; p < n -1; p++)
+    {
+      for(q = p + 1; q < n; q++)
+      {
+        indices[idx++] = make_tuple(p, q, fabs(A[p][q]));
+        JacobiCS(A[p][q], A[p][p], A[q][q], c[p][q], s[p][q], tol);
+      }
+    }
+    std::sort(indices.begin(), indices.end(), sort_desc);
+    for(int i=0; i<topk; ++i)
+    {
+      p = get<0>(indices[i]);
+      q = get<1>(indices[i]);	
+      use[p][q] = 1;
+    }
     for(int k=0; k<n/2; k++)
     {
       top[k] = 2*k;
@@ -41,7 +69,10 @@ unsigned long GroupJRSTwo(double **A, int n, double eps, double tol, double para
           q = max(top[k], bot[k]);
           pa[g*n/2+k] = p;
           qa[g*n/2+k] = q;
-          RandJacobiCS(A[p][q], A[p][p], A[q][q], c[p][q], s[p][q], param, tol);
+          if (use[p][q])
+          {
+            RandJacobiCS(A[p][q], A[p][p], A[q][q], c[p][q], s[p][q], param, tol);
+          }
         }
         music(top, bot, newtop, newbot, n/2);
         swap(top, newtop);
@@ -52,8 +83,11 @@ unsigned long GroupJRSTwo(double **A, int n, double eps, double tol, double para
       {			
         p = pa[g];
         q = qa[g];
-        rowRot(A, n, p, q, c[p][q], s[p][q]);
-        colRot(A, n, p, q, c[p][q], s[p][q]);
+        if (use[p][q])
+        {
+          rowRot(A, n, p, q, c[p][q], s[p][q]);
+          colRot(A, n, p, q, c[p][q], s[p][q]);
+        }
       }
     }	
 
@@ -65,7 +99,10 @@ unsigned long GroupJRSTwo(double **A, int n, double eps, double tol, double para
         q = max(top[k], bot[k]);
         pa[g*n/2+k] = p;
         qa[g*n/2+k] = q;
-        RandJacobiCS(A[p][q], A[p][p], A[q][q], c[p][q], s[p][q], param, tol);
+        if (use[p][q])
+        {
+          RandJacobiCS(A[p][q], A[p][p], A[q][q], c[p][q], s[p][q], param, tol);
+        }
       }
       music(top, bot, newtop, newbot, n/2);
       swap(top, newtop);
@@ -76,8 +113,11 @@ unsigned long GroupJRSTwo(double **A, int n, double eps, double tol, double para
     {			
       p = pa[g];
       q = qa[g];
-      rowRot(A, n, p, q, c[p][q], s[p][q]);
-      colRot(A, n, p, q, c[p][q], s[p][q]);
+      if (use[p][q])
+      {
+        rowRot(A, n, p, q, c[p][q], s[p][q]);
+        colRot(A, n, p, q, c[p][q], s[p][q]);
+      }
     }
 
     nSweeps ++;
@@ -91,9 +131,11 @@ unsigned long GroupJRSTwo(double **A, int n, double eps, double tol, double para
   {
     delete[] c[i];
     delete[] s[i];
+    delete[] use[i];
   }
   delete[] c;
   delete[] s;
+  delete[] use;
 
   delete[] top;
   delete[] bot;
