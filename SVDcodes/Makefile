@@ -23,6 +23,7 @@ SRCS=svd.h \
 		 par_jps_two.cpp \
 		 par_jprs_one.cpp \
 		 par_jprs_two.cpp \
+		 grp_jrs_one.cpp \
 		 grp_jrs_two.cpp \
 
 

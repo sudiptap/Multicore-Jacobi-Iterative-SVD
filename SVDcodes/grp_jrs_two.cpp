@@ -24,10 +24,6 @@ unsigned long GroupJRSTwo(double **A, int n, double eps, double tol, double rand
   int *pa = new int[ps];
   int *qa = new int[ps];
 
-  int *temptop;
-  int *tempbot;
-
-
   while(offA > eps)
   {
     for(int k=0; k<n/2; k++)

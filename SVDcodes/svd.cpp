@@ -14,6 +14,7 @@
 #include "par_jrs_one.cpp"
 #include "par_jps_one.cpp"
 #include "par_jprs_one.cpp"
+#include "grp_jrs_one.cpp"
 
 
 unsigned long IndependentJacobi(double **A, int n, double eps, double tol)
@@ -888,9 +889,11 @@ int main(int argc, char* argv[])
       break;
     case 207:
       nSweeps = ParallelJPRSTwo(A, rows, eps, tol, param, topk);
+      break;
     case 208:
       nSweeps = GroupJRSTwo(A, rows, eps, tol, param);
       break;
+
 		case 101:
 			nSweeps = CyclicJacobiOne(A, rows, cols, eps, tol, param);
 			break;
@@ -911,6 +914,9 @@ int main(int argc, char* argv[])
       break;
     case 107:
       nSweeps = ParallelJPRSOne(A, rows, cols, eps, tol, param, topk);
+      break;
+    case 108:
+      nSweeps = GroupJRSOne(A, rows, cols, eps, tol, param);
       break;
 
     case 300:
