@@ -6,6 +6,7 @@
 #include "par_jrs_two.cpp"
 #include "par_jps_two.cpp"
 #include "par_jprs_two.cpp"
+#include "grp_jrs_two.cpp"
 #include "cyclic_jacobi_one.cpp"
 #include "jrs_one.cpp"
 #include "jps_one.cpp"
@@ -114,7 +115,7 @@ unsigned long BlockRandomJacobi(double **A, int n, double eps, double tol, doubl
 					qa[(g-1)*n/2+k-1] = q;
 					RandJacobiCS(A[p-1][q-1], A[p-1][p-1], A[q-1][q-1], c[p-1][q-1], s[p-1][q-1], randParam, tol);
 				}
-				music(top, bot, &newtop, &newbot, n/2);
+				music(top, bot, newtop, newbot, n/2);
 				
 				temptop = top;
 				tempbot = bot;
@@ -144,7 +145,7 @@ unsigned long BlockRandomJacobi(double **A, int n, double eps, double tol, doubl
 				qa[(g-1)*n/2+k-1] = q;
 				RandJacobiCS(A[p-1][q-1], A[p-1][p-1], A[q-1][q-1], c[p-1][q-1], s[p-1][q-1], randParam, tol);
 			}
-			music(top, bot, &newtop, &newbot, n/2);
+			music(top, bot, newtop, newbot, n/2);
 				
 			temptop = top;
 			tempbot = bot;
@@ -343,7 +344,7 @@ unsigned long BlockRandomJacobiGroupJRSTopK(double **A, int n, double eps, doubl
 					qa[(g-1)*n/2+k-1] = q;
 					RandJacobiCS(A[p-1][q-1], A[p-1][p-1], A[q-1][q-1], c[p-1][q-1], s[p-1][q-1], randParam, tol);
 				}
-				music(top, bot, &newtop, &newbot, n/2);
+				music(top, bot, newtop, newbot, n/2);
 				
 				temptop = top;
 				tempbot = bot;
@@ -373,7 +374,7 @@ unsigned long BlockRandomJacobiGroupJRSTopK(double **A, int n, double eps, doubl
 				qa[(g-1)*n/2+k-1] = q;
 				RandJacobiCS(A[p-1][q-1], A[p-1][p-1], A[q-1][q-1], c[p-1][q-1], s[p-1][q-1], randParam, tol);
 			}
-			music(top, bot, &newtop, &newbot, n/2);
+			music(top, bot, newtop, newbot, n/2);
 				
 			temptop = top;
 			tempbot = bot;
@@ -592,7 +593,7 @@ unsigned long BlockRandomOneJacobi(double **A, int m, int n, double eps, double 
 						converged = false;
 					RandJacobiCS(Apq, App, Aqq, c[p-1][q-1], s[p-1][q-1], randParam, tol);
 				}
-				music(top, bot, &newtop, &newbot, m/2);
+				music(top, bot, newtop, newbot, m/2);
 				
 				temptop = top;
 				tempbot = bot;
@@ -627,7 +628,7 @@ unsigned long BlockRandomOneJacobi(double **A, int m, int n, double eps, double 
 					converged = false;
 				RandJacobiCS(Apq, App, Aqq, c[p-1][q-1], s[p-1][q-1], randParam, tol);
 			}
-			music(top, bot, &newtop, &newbot, m/2);
+			music(top, bot, newtop, newbot, m/2);
 				
 			temptop = top;
 			tempbot = bot;
@@ -887,6 +888,8 @@ int main(int argc, char* argv[])
       break;
     case 207:
       nSweeps = ParallelJPRSTwo(A, rows, eps, tol, param, topk);
+    case 208:
+      nSweeps = GroupJRSTwo(A, rows, eps, tol, param);
       break;
 		case 101:
 			nSweeps = CyclicJacobiOne(A, rows, cols, eps, tol, param);
@@ -916,9 +919,9 @@ int main(int argc, char* argv[])
 //		case 207:
 //			nSweeps = BlockRandomJacobi(A, rows, eps, tol, param);//group JRS
 //			break;
-		case 208:
-			nSweeps = BlockRandomJacobiGroupJRSSorted(A, rows, eps, tol, param);//group JRS parallel sorted two sided - not implemented yet
-			break;
+//		case 208:
+//			nSweeps = BlockRandomJacobiGroupJRSSorted(A, rows, eps, tol, param);//group JRS parallel sorted two sided - not implemented yet
+//			break;
 		case 209:
 			nSweeps = BlockRandomJacobiGroupJRSTopK(A, rows, eps, tol, param, 4);//group JRS parallel sorted top -k two sided - not implemented yet
 			break;

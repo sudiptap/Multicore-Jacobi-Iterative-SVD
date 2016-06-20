@@ -39,159 +39,154 @@ enum SolverType {
 
 int readNSymA(char *filename, double ***A, int *cols)
 {
-	FILE* fp = fopen(filename, "rt");
-	int rows;
-	double value;
-	fscanf(fp, "%d", &rows);
-	fscanf(fp, "%d", cols);
-	*A = (double **) new double*[rows];
-	for(int i=0; i<rows; i++)
-	{
-		(*A)[i] = (double *)new double[rows];
-		for(int j=0; j<*cols; j++)
-		{
-			fscanf(fp, "%lf", &value);
-			(*A)[i][j] = value;
-		}
-	}
-	fclose(fp);
-	return rows;
+  FILE* fp = fopen(filename, "rt");
+  int rows;
+  double value;
+  fscanf(fp, "%d", &rows);
+  fscanf(fp, "%d", cols);
+  *A = (double **) new double*[rows];
+  for(int i=0; i<rows; i++)
+  {
+    (*A)[i] = (double *)new double[rows];
+    for(int j=0; j<*cols; j++)
+    {
+      fscanf(fp, "%lf", &value);
+      (*A)[i][j] = value;
+    }
+  }
+  fclose(fp);
+  return rows;
 
 }
 
 double calcNorm(double **A, int rows, int cols)
 {
-	double norm = 0.0;
-	for(int i=0; i<rows; i++)
-	{
-		
-		for(int j=0; j<cols; j++)
-		{
-			norm += (A[i][j] * A[i][j]);
-		}
-	}
-//	norm = 2 * norm;
-	return norm;
+  double norm = 0.0;
+  for(int i=0; i<rows; i++)
+  {
+
+    for(int j=0; j<cols; j++)
+    {
+      norm += (A[i][j] * A[i][j]);
+    }
+  }
+  //	norm = 2 * norm;
+  return norm;
 }
 double calcOffA(double **A, int rows)
 {
-	double offA = 0.0;
-	for(int i=0; i<rows; i++)
-	{
-		
-		for(int j=0; j<rows; j++)
-		{
+  double offA = 0.0;
+  for(int i=0; i<rows; i++)
+  {
+
+    for(int j=0; j<rows; j++)
+    {
       if (fabs(A[i][j]-A[j][i]) > 1e-10) {
         cout << i << "," << j << "," << A[i][j] << "," << A[j][i] << endl;
         cout << "not symmetric" << endl;
         exit(-1);
       }
-			if(j != i)
-				offA += (A[i][j] * A[i][j]);
-		}
-	}
-//	offA = 2 * offA;
-	return offA;
+      if(j != i)
+        offA += (A[i][j] * A[i][j]);
+    }
+  }
+  //	offA = 2 * offA;
+  return offA;
 }
 
 void rowRot(double **A, int cols, int p, int q, double c, double s)
 {
-	for(int j=0; j < cols; j++)
-	{
-		double tao1 = A[p][j];
-		double tao2 = A[q][j];
-		A[p][j] = c * tao1 - s * tao2;
-		A[q][j] = s * tao1 + c * tao2;
-	}
+  for(int j=0; j < cols; j++)
+  {
+    double tao1 = A[p][j];
+    double tao2 = A[q][j];
+    A[p][j] = c * tao1 - s * tao2;
+    A[q][j] = s * tao1 + c * tao2;
+  }
 }
 
 void colRot(double **A, int rows, int p, int q, double c, double s)
 {
-	for(int i=0; i < rows; i++)
-	{
-		double tao1 = A[i][p];
-		double tao2 = A[i][q];
-		A[i][p] = c * tao1 - s * tao2;
-		A[i][q] = s * tao1 + c * tao2;
-	}
+  for(int i=0; i < rows; i++)
+  {
+    double tao1 = A[i][p];
+    double tao2 = A[i][q];
+    A[i][p] = c * tao1 - s * tao2;
+    A[i][q] = s * tao1 + c * tao2;
+  }
 }
 
 //compute c and s
 void JacobiCS(double Apq, double App, double Aqq, double &c, double &s, double tol)
 {
-//	if(fabs(Apq) > tol)
-	if(Apq != 0)
-	{
-		double tao = (Aqq - App) / (2 * Apq);
-		int signTao;
-		if(tao >= 0) signTao = 1;
-		else signTao = -1;
-		double t = signTao / (fabs(tao) + sqrt(1 + tao * tao));
-		c = 1 / sqrt(1 + t * t);
-		s = t * c;
-	}
-	else 
-	{
-		c = 1;
-		s = 0;
-	}
+  //	if(fabs(Apq) > tol)
+  if(Apq != 0)
+  {
+    double tao = (Aqq - App) / (2 * Apq);
+    int signTao;
+    if(tao >= 0) signTao = 1;
+    else signTao = -1;
+    double t = signTao / (fabs(tao) + sqrt(1 + tao * tao));
+    c = 1 / sqrt(1 + t * t);
+    s = t * c;
+  }
+  else 
+  {
+    c = 1;
+    s = 0;
+  }
 }
 
 //should name RelaxationJacobiCS
 void RandJacobiCS(double Apq, double App, double Aqq, double &c, double &s, double x, double tol)
 {
-	if(Apq != 0)
-	{
-		double tao = (Aqq - App) / (2 * Apq);
-		int signTao;
-		if(tao >= 0) signTao = 1;
-		else signTao = -1;
-		double t = signTao * (1-x) / (fabs(tao) + sqrt(1 + tao * tao - x * x));
-		c = 1 / sqrt(1 + t * t);
-		s = t * c;
-	}
-	else 
-	{
-		c = 1;
-		s = 0;
-	}
+  if(Apq != 0)
+  {
+    double tao = (Aqq - App) / (2 * Apq);
+    int signTao;
+    if(tao >= 0) signTao = 1;
+    else signTao = -1;
+    double t = signTao * (1-x) / (fabs(tao) + sqrt(1 + tao * tao - x * x));
+    c = 1 / sqrt(1 + t * t);
+    s = t * c;
+  }
+  else 
+  {
+    c = 1;
+    s = 0;
+  }
 }
-void music(int *top, int *bot, int **newtop, int **newbot, int m)
+void music(int *top, int *bot, int *newtop, int *newbot, int m)
 {
-	for(int k=1; k<=m; k++)
-	{
-		if(k == 1)
-			(*newtop)[k-1] = 1;
-		else 
-		{
-			if (k == 2)
-				(*newtop)[k-1] = bot[0];
-			else
-				(*newtop)[k-1] = top[k-2];
-		}
-		if(k == m)
-			(*newbot)[k-1] = top[k-1];
-		else 
-			(*newbot)[k-1] = bot[k];
-	}
+  for(int k=0; k<m; k++)
+  {
+    if (k == 1)
+      newtop[k] = bot[0];
+    else if (k > 1)
+      newtop[k] = top[k-1];
+    if(k+1 == m)
+      newbot[k] = top[k];
+    else 
+      newbot[k] = bot[k+1];
+  }
 }
 
 double vectornorm(double **A, int p, int n)
 {
-	double result = 0;
-	for(int i=0; i<n; i++)
-	{
-		result += A[p][i] * A[p][i];	
-	}
-	return result;
+  double result = 0;
+  for(int i=0; i<n; i++)
+  {
+    result += A[p][i] * A[p][i];	
+  }
+  return result;
 }
 
 double dotproduct(double **A, int p, int q, int n)
 {
-	double result = 0;
-	for(int i=0; i<n; i++)
-		result += A[p][i] * A[q][i];
-	return result;
+  double result = 0;
+  for(int i=0; i<n; i++)
+    result += A[p][i] * A[q][i];
+  return result;
 }
 
 #endif
