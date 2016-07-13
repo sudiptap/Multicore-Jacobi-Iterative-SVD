@@ -17,19 +17,21 @@ solvers = [1,2,3,4,5,6,7,8,9,10]
 solver_names = {
         1 : "Cyclic",
         2 : "JRS",
-        3 : "JPS",
-        4 : "JPRS",
+        3 : "JTS",
+        4 : "JRTS",
         5 : "ParallelJRS",
-        6 : "ParallelJPS",
-        7 : "ParallelJPRS",
+        6 : "ParallelJTS",
+        7 : "ParallelJRTS",
         8 : "GroupJRS",
-        9 : "GroupJPS",
-       10 : "GroupJPRS",
+        9 : "GroupJTS",
+       10 : "GroupJRTS",
 }
 
 
 sym_mat_sizes = [30, 50, 100]
+sym_mat_sizes = [100, 500]
 mat_sizes = [[30, 25], [50, 20], [100, 75]]
+mat_sizes = [[100, 75], [500, 300]]
 #solvers = [1,2,3,4,5,6,7,8,9,10]
 solvers = [6]
 

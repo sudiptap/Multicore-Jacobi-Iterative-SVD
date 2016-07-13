@@ -322,9 +322,11 @@ int main(int argc, char* argv[])
   switch(option)
   {
     case 201:
+      param2 = 1;
       nSweeps = CyclicJacobiTwo(A, rows, eps, tol, param);
       break;
     case 202:
+      param2 = 1;
       nSweeps = JRSTwo(A, rows, eps, tol, param);
       break;
     case 203:
@@ -334,6 +336,7 @@ int main(int argc, char* argv[])
       nSweeps = JPRSTwo(A, rows, eps, tol, param, topk);
       break;
     case 205:
+      param2 = 1;
       nSweeps = ParallelJRSTwo(A, rows, eps, tol, param);
       break;
     case 206:
@@ -343,6 +346,7 @@ int main(int argc, char* argv[])
       nSweeps = ParallelJPRSTwo(A, rows, eps, tol, param, topk);
       break;
     case 208:
+      param2 = 1;
       nSweeps = GroupJRSTwo(A, rows, eps, tol, param);
       break;
     case 209:
@@ -353,9 +357,11 @@ int main(int argc, char* argv[])
       break;
 
 		case 101:
+      param2 = 1;
 			nSweeps = CyclicJacobiOne(A, rows, cols, eps, tol, param);
 			break;
     case 102:
+      param2 = 1;
       nSweeps = JRSOne(A, rows, cols, eps, tol, param);
       break;
     case 103:
@@ -365,6 +371,7 @@ int main(int argc, char* argv[])
       nSweeps = JPRSOne(A, rows, cols, eps, tol, param, topk);
       break;
     case 105:
+      param2 = 1;
       nSweeps = ParallelJRSOne(A, rows, cols, eps, tol, param);
       break;
     case 106:
@@ -374,6 +381,7 @@ int main(int argc, char* argv[])
       nSweeps = ParallelJPRSOne(A, rows, cols, eps, tol, param, topk);
       break;
     case 108:
+      param2 = 1;
       nSweeps = GroupJRSOne(A, rows, cols, eps, tol, param);
       break;
     case 109:
@@ -384,16 +392,20 @@ int main(int argc, char* argv[])
       break;
 
     case 211:
+      param2 = 1;
       nSweeps = IndependentJacobi(A, rows, eps, tol);//Independent two-sided Jacobi
       break;
 		case 111:
+      param2 = 1;
 			nSweeps = IndependentOneJacobi(A, rows, cols, eps, tol);//Independent one-sided Jacobi
 			break;
 		case 12:
+      param2 = 1;
 			R = atoi(argv[5]);
 			nSweeps = StrumpenJacobi(A, rows, cols, eps, tol, param, R);//R by R processors
 			break;
 		case 13:
+      param2 = 1;
 			R = atoi(argv[5]);
 			nSweeps = StrumpenRelaxationJacobi(A, rows, cols, eps, tol, param, R);//R by R processors
 			break;
@@ -411,7 +423,7 @@ int main(int argc, char* argv[])
 	fclose(fp);
 	delete [] A;
 
-	printf("@@@@,%d,%d,%s,%d,%ld\n", rows,cols,filename,option,nSweeps);
+	printf("@@@@,%d,%d,%s,%d,%ld,%d\n", rows,cols,filename,option,(nSweeps+param2-1)/param2,param2);
 
 //	FILE *fplog = fopen("log.txt", "at");
 //	fprintf(fplog, "\n %s %s %d %s %ld\n", filename, "option = ", option, "sweeps = ", nSweeps);
