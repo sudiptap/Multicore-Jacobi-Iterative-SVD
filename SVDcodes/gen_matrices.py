@@ -44,7 +44,9 @@ for n in sym_mat_sizes:
         mat_ins = mat + "-" + str(i+1) + ".txt"
         mat_file = mat_dir + "/" + mat_ins
         print mat_file
-        print_matrix(gen_symm_matrix(n), mat_file)
+        if not os.path.exists(mat_file): 
+          print "generating ... ", mat_file
+          print_matrix(gen_symm_matrix(n), mat_file)
 
 for (m, n) in mat_sizes:
     mat = "m" + str(m) + "x" + str(n)
@@ -54,6 +56,7 @@ for (m, n) in mat_sizes:
     for i in range(num_instances):
         mat_ins = mat + "-" + str(i+1) + ".txt"
         mat_file = mat_dir + "/" + mat_ins
-        print mat_file
-        print_matrix(gen_matrix(m, n), mat_file)
+        if not os.path.exists(mat_file): 
+          print mat_file
+          print_matrix(gen_matrix(m, n), mat_file)
 
