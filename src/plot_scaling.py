@@ -5,7 +5,7 @@ import time
 import numpy
 import math
 import subprocess as sp
-from scipy.linalg import hilbert
+#from scipy.linalg import hilbert
 from matplotlib.lines import Line2D
 import itertools as it
 import pandas as pd
@@ -31,7 +31,7 @@ import matplotlib.pyplot as plt
 
 markers = Line2D.filled_markers
 
-from results import *
+from results_scaling import *
 df = pd.DataFrame(results, columns=['solver', 'n', 'tau', 'threads', 'update', 'time'])
 
 num_run = 2
@@ -40,7 +40,8 @@ top_dir = os.path.abspath(script_dir + "/..")
 data_dir = top_dir + "/data"
 
 nvalues = [500, 1000, 1500, 2000, 2500, 3000]
-solvers = [[1, 4], [7, 1], [7, 2], [7, 4], [7, 8], [7, 16], [9, 1], [9, 2], [9, 4], [9, 8], [9, 16]]
+nvalues = [30, 50, 100]
+solvers = [[9, 1], [9, 2], [9, 4], [9, 8], [9, 16]]
 
 solver_names = {
         1: "Cyclic",
@@ -55,6 +56,7 @@ def get_col(cols, values):
     #print c, v
     select = select & (df[c] == v)
     #print select
+  print df[select]
   return df[select]
 
 
@@ -62,13 +64,16 @@ def plot(to_plot, yname, ylabel, xlabel, ycol, xcol):
     fig = plt.figure(num=None, figsize=(8, 6), dpi=80, facecolor='w', edgecolor='k')
     plt.clf()
     num_plots = 0
-    for [s, k, config] in to_plot:
-        newdf = get_col(['solver', 'tau'], [s, k])
+    for [n, config] in to_plot:
+        newdf = get_col(['n'], [n])
+        thread1_time = newdf[ycol][newdf[xcol] == 1].iloc[0]
+        newdf[ycol] = thread1_time / newdf[ycol]
+        print newdf
         newax = newdf.plot(x=xcol, y=ycol, label = config, linewidth=3, marker=markers[num_plots], markersize=5)
         num_plots += 1
     lines, labels = newax.get_legend_handles_labels() 
     #print "*************", labels, "***************"
-    plt.legend(lines, labels, loc=2, labelspacing=0.07, numpoints=1, borderpad=0, frameon=False, handlelength=1)
+    plt.legend(lines, labels, loc=1, labelspacing=0.07, numpoints=1, borderpad=0, frameon=False, handlelength=1)
     plt.xlabel(xlabel) 
     plt.ylabel(ylabel) 
     fig.tight_layout()
@@ -93,13 +98,9 @@ print df
 
 #read_data("mylog.txt")
 
-for [s, k] in solvers:
-    config = solver_names[s]
-    if (s in [7, 9]):
-        config += ".$\\tau$%d" % (k)
-    update_plot.append([s, k, config])
-    time_plot.append([s, k, config])
+for n in nvalues:
+    config = "$n$=%d" % (n)
+    time_plot.append([n, config])
 
-plot(update_plot, 'updates', 'Number of updates', 'Matrix size', 'update', 'n')
-plot(time_plot, 'timing', 'Time taken', 'Matrix size', 'time', 'n')
+plot(time_plot, 'scaling', 'Scaling factor', 'Number of threads ($p$)', 'time', 'threads')
 
