@@ -68,7 +68,7 @@ def plot(to_plot, yname, ylabel, xlabel, ycol, xcol):
         num_plots += 1
     lines, labels = newax.get_legend_handles_labels() 
     #print "*************", labels, "***************"
-    plt.legend(lines, labels, loc=2, labelspacing=0.5, numpoints=1, borderpad=0, frameon=False, handlelength=1)
+    plt.legend(lines, labels, loc=2, labelspacing=0.07, numpoints=1, borderpad=0, frameon=False, handlelength=1)
     plt.xlabel(xlabel) 
     plt.ylabel(ylabel) 
     fig.tight_layout()
