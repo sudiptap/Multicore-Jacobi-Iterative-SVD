@@ -39,8 +39,8 @@ script_dir = os.path.dirname(os.path.abspath(__file__))
 top_dir = os.path.abspath(script_dir + "/..")
 data_dir = top_dir + "/data"
 
-nvalues = [500, 1000, 1500, 2000, 2500, 3000]
 nvalues = [30, 50, 100]
+nvalues = [500, 1000, 1500, 2000, 2500, 3000]
 solvers = [[9, 1], [9, 2], [9, 4], [9, 8], [9, 16]]
 
 solver_names = {
@@ -73,7 +73,7 @@ def plot(to_plot, yname, ylabel, xlabel, ycol, xcol):
         num_plots += 1
     lines, labels = newax.get_legend_handles_labels() 
     #print "*************", labels, "***************"
-    plt.legend(lines, labels, loc=1, labelspacing=0.07, numpoints=1, borderpad=0, frameon=False, handlelength=1)
+    plt.legend(lines, labels, loc=2, labelspacing=0.07, numpoints=1, borderpad=0, frameon=False, handlelength=1)
     plt.xlabel(xlabel) 
     plt.ylabel(ylabel) 
     fig.tight_layout()
