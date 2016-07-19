@@ -64,7 +64,7 @@ def plot(to_plot, yname, ylabel, xlabel, ycol, xcol):
     num_plots = 0
     for [s, k, config] in to_plot:
         newdf = get_col(['solver', 'tau'], [s, k])
-        newax = newdf.plot(x=xcol, y=ycol, label = config, linewidth=3, marker=markers[num_plots], markersize=5)
+        newax = newdf.plot(x=xcol, y=ycol, label = config, linewidth=3, marker=markers[num_plots], markersize=7)
         num_plots += 1
     lines, labels = newax.get_legend_handles_labels() 
     #print "*************", labels, "***************"
@@ -100,6 +100,6 @@ for [s, k] in solvers:
     update_plot.append([s, k, config])
     time_plot.append([s, k, config])
 
-plot(update_plot, 'updates', 'Number of updates', 'Matrix size', 'update', 'n')
-plot(time_plot, 'timing', 'Time taken', 'Matrix size', 'time', 'n')
+plot(update_plot, 'updates', 'Number of updates', 'Matrix size ($n$)', 'update', 'n')
+plot(time_plot, 'timing', 'Time taken', 'Matrix size ($n$)', 'time', 'n')
 

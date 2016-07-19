@@ -2,9 +2,9 @@
 CXX=g++
 RM=rm -f
 #CXXFLAGS=-Wall -O0 -g -fopenmp -pthread -std=c++11 -Wl,--no-as-needed
-#CXXFLAGS=-Wall -O3 -fopenmp -pthread -lpthread -std=c++11 -Wl,--no-as-needed
+CXXFLAGS=-Wall -O3 -fopenmp -pthread -lpthread -std=c++11 -Wl,--no-as-needed
 #CXXFLAGS=-Wall -O3 -std=c++11 
-CXXFLAGS=-Wall -O0 -g -std=c++11 
+#CXXFLAGS=-Wall -O0 -g -std=c++11 
 LDFLAGS=-fopenmp -pthread -std=c++11 -Wl,--no-as-needed
 LDLIBS=-lpthread #-lgsl -lblas
 
