@@ -39,11 +39,8 @@ script_dir = os.path.dirname(os.path.abspath(__file__))
 top_dir = os.path.abspath(script_dir + "/..")
 data_dir = top_dir + "/data"
 
-nvalues = [30, 50, 100]
-solvers = [[1, 4], [7, 4], [7, 8], [9, 4], [9, 8]]
-
-#nvalues = [500, 1000, 1500, 2000, 2500, 3000]
-#solvers = [[1, 4], [7, 1], [7, 2], [7, 4], [7, 8], [7, 16], [7, 32], [9, 1], [9, 2], [9, 4], [9, 8], [9, 16], [9, 32]]
+nvalues = [500, 1000, 1500, 2000, 2500, 3000]
+solvers = [[1, 4], [7, 1], [7, 2], [7, 4], [7, 8], [7, 16], [9, 1], [9, 2], [9, 4], [9, 8], [9, 16]]
 
 solver_names = {
         1: "Cyclic",
