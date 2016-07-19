@@ -34,8 +34,8 @@ script_dir = os.path.dirname(os.path.abspath(__file__))
 top_dir = os.path.abspath(script_dir + "/..")
 data_dir = top_dir + "/data"
 
-nvalues = [30, 50, 100]
-#nvalues = [500, 1000, 1500, 2000, 2500, 3000]
+#nvalues = [30, 50, 100]
+nvalues = [500, 1000, 1500, 2000, 2500, 3000]
 
 solvers = [[9, 1], [9, 2], [9, 4], [9, 8], [9, 16]]
 
